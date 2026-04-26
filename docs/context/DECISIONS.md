@@ -12,3 +12,4 @@
 - `D-20260426-006` | 2026-04-26 | `Gscsc4010CsvOutAction.do` は server 側で集計期間・比較期間とも 3 か月以内制限を持つため、年間参照は 1 回の POST ではなく 3 か月以内チャンクの分割取得と local 集計で実現する | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-007` | 2026-04-26 | 初回 deliverable はブラウザ表ではなく年間集計済み CSV の出力とする。ブラウザ一覧は後続拡張とする | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-008` | 2026-04-26 | 実装では、対象年だけでなく対象月範囲を指定できるようにし、同じ実行結果を画面内の表とグラフでも確認できるようにする | `docs/spec_001_sales_destination_annual_csv.md` | active
+- `D-20260426-009` | 2026-04-26 | 対象月範囲は開始年基準で翌年までまたげるようにし、画面表示と CSV 出力は別ボタンで分離する。グラフの総合計上位はフォームの並び順ではなく総合計料金そのものの降順で算出する | `docs/spec_001_sales_destination_annual_csv.md` | active

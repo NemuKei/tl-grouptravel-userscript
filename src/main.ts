@@ -12,6 +12,7 @@ const ANNUAL_CHART_ID = "tl-grouptravel-annual-csv-chart";
 const ANNUAL_TABLE_ID = "tl-grouptravel-annual-csv-table";
 const STATS_FORM_ID = "gscsc4000form";
 const CSV_ACTION_PATH = "/accomodation/Gscsc4010CsvOutAction.do";
+const PIE_CHART_COLORS = ["#0f766e", "#0ea5e9", "#f59e0b", "#ef4444", "#8b5cf6", "#94a3b8"] as const;
 
 const CSV_HEADER = [
     "販売先名",
@@ -84,6 +85,8 @@ type MonthRangeSelection = {
     toMonth: number;
 };
 
+type AnnualRunMode = "display" | "csv";
+
 type ParsedCsv = {
     conditionLine: string;
     rows: Array<Record<CsvHeader, string>>;
@@ -96,7 +99,8 @@ type AggregatedRow = {
 };
 
 type AnnualPanelElements = {
-    button: HTMLButtonElement;
+    displayButton: HTMLButtonElement;
+    exportButton: HTMLButtonElement;
     yearSelect: HTMLSelectElement;
     fromMonthSelect: HTMLSelectElement;
     toMonthSelect: HTMLSelectElement;
@@ -338,33 +342,103 @@ function injectStyle(): void {
             font-weight: 700;
         }
 
-        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-row {
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-layout {
             display: grid;
-            grid-template-columns: minmax(140px, 220px) 1fr 90px;
+            grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+            gap: 16px;
+            align-items: start;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-wrap {
+            position: relative;
+            width: min(240px, 100%);
+            aspect-ratio: 1;
+            margin: 0 auto;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid #dbeafe;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-center {
+            position: absolute;
+            inset: 50% auto auto 50%;
+            transform: translate(-50%, -50%);
+            width: 54%;
+            height: 54%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.96);
+            display: grid;
+            place-items: center;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-total-label {
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-total-value {
+            margin-top: 6px;
+            color: #0f172a;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-legend {
+            display: grid;
+            gap: 10px;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-legend-item {
+            display: grid;
+            grid-template-columns: 12px minmax(0, 1fr) auto;
             gap: 10px;
             align-items: center;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 9999px;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-label-wrap {
+            min-width: 0;
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-label,
-        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-value {
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-meta {
             font-size: 12px;
             color: #334155;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-label {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
-        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-bar-track {
-            height: 14px;
-            border-radius: 9999px;
-            background: #e2e8f0;
-            overflow: hidden;
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-meta {
+            margin-top: 4px;
+            color: #64748b;
         }
 
-        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-bar-fill {
-            height: 100%;
-            border-radius: 9999px;
-            background: linear-gradient(90deg, #0f766e 0%, #0ea5e9 100%);
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-value {
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: right;
+            white-space: nowrap;
         }
 
         #${ANNUAL_TABLE_ID} {
@@ -429,22 +503,22 @@ function mountAnnualCsvPanel(): void {
 
     const title = document.createElement("h3");
     title.className = "tlgt-annual-panel__title";
-    title.textContent = "年間集計 CSV";
+    title.textContent = "期間集計";
 
     const description = document.createElement("p");
     description.className = "tlgt-annual-panel__description";
-    description.textContent = "現在の販売先条件をそのまま使い、3か月単位の CSV を順に取得して年間集計した CSV を出力します。";
+    description.textContent = "現在の販売先条件をそのまま使い、3か月単位の CSV を順に取得して集計します。表示のみと CSV 出力を分けて実行できます。";
 
     const controls = document.createElement("div");
     controls.className = "tlgt-annual-panel__controls";
 
     const yearLabel = document.createElement("label");
     yearLabel.className = "tlgt-annual-panel__label";
-    yearLabel.textContent = "対象年";
+    yearLabel.textContent = "開始年";
 
     const yearSelect = document.createElement("select");
     yearSelect.className = "tlgt-annual-panel__year";
-    yearSelect.setAttribute("aria-label", "年間集計の対象年");
+    yearSelect.setAttribute("aria-label", "期間集計の開始年");
     populateYearSelect(yearSelect, form);
     yearLabel.append(yearSelect);
 
@@ -477,15 +551,20 @@ function mountAnnualCsvPanel(): void {
     includeZeroCheckbox.checked = false;
     zeroLabel.append(includeZeroCheckbox, "実績 0 行も含める");
 
-    const runButton = document.createElement("button");
-    runButton.className = "tlgt-annual-panel__button";
-    runButton.type = "button";
-    runButton.textContent = "年間 CSV を出力";
+    const displayButton = document.createElement("button");
+    displayButton.className = "tlgt-annual-panel__button";
+    displayButton.type = "button";
+    displayButton.textContent = "表示する";
+
+    const exportButton = document.createElement("button");
+    exportButton.className = "tlgt-annual-panel__button";
+    exportButton.type = "button";
+    exportButton.textContent = "CSV を出力";
 
     const status = document.createElement("div");
     status.id = ANNUAL_STATUS_ID;
     status.dataset.tone = "idle";
-    status.textContent = "準備完了。対象年を選んで実行してください。";
+    status.textContent = "準備完了。開始年と対象月を選んで実行してください。年またぎの範囲も指定できます。";
 
     const progress = document.createElement("ul");
     progress.id = ANNUAL_PROGRESS_ID;
@@ -502,12 +581,13 @@ function mountAnnualCsvPanel(): void {
 
     result.append(chart, table);
 
-    controls.append(yearLabel, rangeLabel, zeroLabel, runButton);
+    controls.append(yearLabel, rangeLabel, zeroLabel, displayButton, exportButton);
     panel.append(title, description, controls, status, progress, result);
     outputList.insertAdjacentElement("afterend", panel);
 
     const elements: AnnualPanelElements = {
-        button: runButton,
+        displayButton,
+        exportButton,
         yearSelect,
         fromMonthSelect,
         toMonthSelect,
@@ -519,28 +599,43 @@ function mountAnnualCsvPanel(): void {
         table
     };
 
-    runButton.addEventListener("click", () => {
-        void runAnnualCsvExport(form, elements);
+    displayButton.addEventListener("click", () => {
+        void runAnnualAggregation(form, elements, "display");
+    });
+
+    exportButton.addEventListener("click", () => {
+        void runAnnualAggregation(form, elements, "csv");
     });
 }
 
-async function runAnnualCsvExport(form: HTMLFormElement, elements: AnnualPanelElements): Promise<void> {
+async function runAnnualAggregation(
+    form: HTMLFormElement,
+    elements: AnnualPanelElements,
+    mode: AnnualRunMode
+): Promise<void> {
     const rangeSelection = getMonthRangeSelection(elements);
     const validationMessage = validateAnnualCsvInputs(form, rangeSelection);
 
     if (validationMessage !== null) {
         setPanelStatus(elements.status, validationMessage, "error");
         clearProgress(elements.progress);
-        clearRenderedResult(elements);
+        if (mode === "display") {
+            clearRenderedResult(elements);
+        }
         return;
     }
 
     const chunks = buildAnnualChunks(rangeSelection);
     const parsedCsvList: ParsedCsv[] = [];
 
-    elements.button.disabled = true;
+    elements.displayButton.disabled = true;
+    elements.exportButton.disabled = true;
     clearProgress(elements.progress);
-    setPanelStatus(elements.status, `${describeSelection(rangeSelection)} の CSV 取得を開始します。`, "progress");
+    setPanelStatus(
+        elements.status,
+        `${describeSelection(rangeSelection)} の ${mode === "display" ? "表示用" : "CSV 出力用"}集計を開始します。`,
+        "progress"
+    );
 
     try {
         for (const chunk of chunks) {
@@ -558,31 +653,37 @@ async function runAnnualCsvExport(form: HTMLFormElement, elements: AnnualPanelEl
 
         const aggregatedRows = aggregateCsvRows(parsedCsvList, elements.includeZeroCheckbox.checked);
         const sortedRows = sortAggregatedRows(aggregatedRows, form);
-        const csvText = buildAnnualCsvText(rangeSelection, form, sortedRows);
 
-        renderAggregatedResult(elements, rangeSelection, sortedRows);
-        downloadCsvFile(buildCsvFileName(rangeSelection), csvText);
-
-        setPanelStatus(
-            elements.status,
-            `${describeSelection(rangeSelection)} の集計を表示し、CSV を出力しました。${sortedRows.length} 行を含みます。`,
-            "success"
-        );
+        if (mode === "display") {
+            renderAggregatedResult(elements, rangeSelection, sortedRows);
+            setPanelStatus(
+                elements.status,
+                `${describeSelection(rangeSelection)} の集計を表示しました。${sortedRows.length} 行を含みます。`,
+                "success"
+            );
+        } else {
+            const csvText = buildAnnualCsvText(rangeSelection, form, sortedRows);
+            downloadCsvFile(buildCsvFileName(rangeSelection), csvText);
+            setPanelStatus(
+                elements.status,
+                `${describeSelection(rangeSelection)} の CSV を出力しました。${sortedRows.length} 行を含みます。`,
+                "success"
+            );
+        }
     } catch (error) {
         setPanelStatus(elements.status, toErrorMessage(error), "error");
-        clearRenderedResult(elements);
+        if (mode === "display") {
+            clearRenderedResult(elements);
+        }
     } finally {
-        elements.button.disabled = false;
+        elements.displayButton.disabled = false;
+        elements.exportButton.disabled = false;
     }
 }
 
 function validateAnnualCsvInputs(form: HTMLFormElement, rangeSelection: MonthRangeSelection): string | null {
     if (Number.isNaN(rangeSelection.targetYear)) {
         return "対象年を選択してください。";
-    }
-
-    if (rangeSelection.fromMonth > rangeSelection.toMonth) {
-        return "対象月は開始月が終了月を超えないようにしてください。";
     }
 
     const categorySelect = getCheckedInputValue(form, "categorySelect");
@@ -856,10 +957,11 @@ function buildAnnualCsvText(rangeSelection: MonthRangeSelection, form: HTMLFormE
 }
 
 function buildConditionLine(rangeSelection: MonthRangeSelection, form: HTMLFormElement): string {
-    const targetStart = `${rangeSelection.targetYear}/${pad2(rangeSelection.fromMonth)}/01`;
-    const targetEnd = `${rangeSelection.targetYear}/${pad2(rangeSelection.toMonth)}/${pad2(getLastDayOfMonth(rangeSelection.targetYear, rangeSelection.toMonth))}`;
-    const compareStart = `${rangeSelection.targetYear - 1}/${pad2(rangeSelection.fromMonth)}/01`;
-    const compareEnd = `${rangeSelection.targetYear - 1}/${pad2(rangeSelection.toMonth)}/${pad2(getLastDayOfMonth(rangeSelection.targetYear - 1, rangeSelection.toMonth))}`;
+    const period = buildRangePeriod(rangeSelection);
+    const targetStart = formatDateParts(period.collectFrom);
+    const targetEnd = formatDateParts(period.collectTo);
+    const compareStart = formatDateParts(period.compareFrom);
+    const compareEnd = formatDateParts(period.compareTo);
 
     return `抽出条件(集計期間：${targetStart} ～ ${targetEnd}、比較期間：${compareStart} ～ ${compareEnd}、集計単位：取扱個所、販売先：${summarizeSelection(form, "salesDestSelectCd", "salesDestSelectAll")}、団体種別：${summarizeSelection(form, "itemMstListCd", "itemMstListAll")}、並び順：${describeSortMode(form)})`;
 }
@@ -937,21 +1039,35 @@ function populateMonthSelect(selectElement: HTMLSelectElement, selectedMonth: nu
 
 function buildAnnualChunks(rangeSelection: MonthRangeSelection): AnnualChunk[] {
     const chunks: AnnualChunk[] = [];
+    const period = buildRangePeriod(rangeSelection);
     let chunkIndex = 1;
-    let currentMonth = rangeSelection.fromMonth;
+    let currentMonthIndex = toMonthIndex(period.collectFrom.year, period.collectFrom.month);
+    const endMonthIndex = toMonthIndex(period.collectTo.year, period.collectTo.month);
 
-    while (currentMonth <= rangeSelection.toMonth) {
-        const endMonth = Math.min(currentMonth + 2, rangeSelection.toMonth);
+    while (currentMonthIndex <= endMonthIndex) {
+        const chunkEndMonthIndex = Math.min(currentMonthIndex + 2, endMonthIndex);
+        const collectFromMonth = fromMonthIndex(currentMonthIndex);
+        const collectToMonth = fromMonthIndex(chunkEndMonthIndex);
+        const compareFromMonth = fromMonthIndex(currentMonthIndex - 12);
+        const compareToMonth = fromMonthIndex(chunkEndMonthIndex - 12);
 
         chunks.push({
             index: chunkIndex,
-            collectFrom: { year: rangeSelection.targetYear, month: currentMonth, day: 1 },
-            collectTo: { year: rangeSelection.targetYear, month: endMonth, day: getLastDayOfMonth(rangeSelection.targetYear, endMonth) },
-            compareFrom: { year: rangeSelection.targetYear - 1, month: currentMonth, day: 1 },
-            compareTo: { year: rangeSelection.targetYear - 1, month: endMonth, day: getLastDayOfMonth(rangeSelection.targetYear - 1, endMonth) }
+            collectFrom: { year: collectFromMonth.year, month: collectFromMonth.month, day: 1 },
+            collectTo: {
+                year: collectToMonth.year,
+                month: collectToMonth.month,
+                day: getLastDayOfMonth(collectToMonth.year, collectToMonth.month)
+            },
+            compareFrom: { year: compareFromMonth.year, month: compareFromMonth.month, day: 1 },
+            compareTo: {
+                year: compareToMonth.year,
+                month: compareToMonth.month,
+                day: getLastDayOfMonth(compareToMonth.year, compareToMonth.month)
+            }
         });
 
-        currentMonth = endMonth + 1;
+        currentMonthIndex = chunkEndMonthIndex + 1;
         chunkIndex += 1;
     }
 
@@ -963,15 +1079,72 @@ function describeChunk(chunk: AnnualChunk): string {
 }
 
 function describeSelection(rangeSelection: MonthRangeSelection): string {
-    return `${rangeSelection.targetYear}年${pad2(rangeSelection.fromMonth)}月〜${pad2(rangeSelection.toMonth)}月`;
+    const period = buildRangePeriod(rangeSelection);
+
+    if (period.collectFrom.year === period.collectTo.year) {
+        return `${period.collectFrom.year}年${pad2(period.collectFrom.month)}月〜${pad2(period.collectTo.month)}月`;
+    }
+
+    return `${period.collectFrom.year}年${pad2(period.collectFrom.month)}月〜${period.collectTo.year}年${pad2(period.collectTo.month)}月`;
 }
 
 function buildCsvFileName(rangeSelection: MonthRangeSelection): string {
-    return `統計データ_${rangeSelection.targetYear}_${pad2(rangeSelection.fromMonth)}-${pad2(rangeSelection.toMonth)}.csv`;
+    const period = buildRangePeriod(rangeSelection);
+
+    if (period.collectFrom.year === period.collectTo.year) {
+        return `統計データ_${period.collectFrom.year}_${pad2(period.collectFrom.month)}-${pad2(period.collectTo.month)}.csv`;
+    }
+
+    return `統計データ_${period.collectFrom.year}${pad2(period.collectFrom.month)}-${period.collectTo.year}${pad2(period.collectTo.month)}.csv`;
 }
 
 function getLastDayOfMonth(year: number, month: number): number {
     return new Date(year, month, 0).getDate();
+}
+
+function buildRangePeriod(rangeSelection: MonthRangeSelection): {
+    collectFrom: DateParts;
+    collectTo: DateParts;
+    compareFrom: DateParts;
+    compareTo: DateParts;
+} {
+    const collectFrom = { year: rangeSelection.targetYear, month: rangeSelection.fromMonth, day: 1 };
+    const collectToYear = rangeSelection.fromMonth <= rangeSelection.toMonth
+        ? rangeSelection.targetYear
+        : rangeSelection.targetYear + 1;
+    const collectTo = {
+        year: collectToYear,
+        month: rangeSelection.toMonth,
+        day: getLastDayOfMonth(collectToYear, rangeSelection.toMonth)
+    };
+    const compareFrom = { year: collectFrom.year - 1, month: collectFrom.month, day: 1 };
+    const compareTo = {
+        year: collectTo.year - 1,
+        month: collectTo.month,
+        day: getLastDayOfMonth(collectTo.year - 1, collectTo.month)
+    };
+
+    return {
+        collectFrom,
+        collectTo,
+        compareFrom,
+        compareTo
+    };
+}
+
+function toMonthIndex(year: number, month: number): number {
+    return (year * 12) + (month - 1);
+}
+
+function fromMonthIndex(monthIndex: number): { year: number; month: number } {
+    return {
+        year: Math.floor(monthIndex / 12),
+        month: (monthIndex % 12) + 1
+    };
+}
+
+function formatDateParts(dateParts: DateParts): string {
+    return `${dateParts.year}/${pad2(dateParts.month)}/${pad2(dateParts.day)}`;
 }
 
 function getStatsForm(): HTMLFormElement | null {
@@ -1120,42 +1293,105 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
 function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): void {
     const title = document.createElement("h4");
     title.className = "tlgt-annual-panel__chart-title";
-    title.textContent = "総合計料金 上位 8 件";
+    title.textContent = "総合計料金 シェア";
     chartContainer.append(title);
 
-    const topRows = rows.slice(0, 8);
-    const maxValue = Math.max(...topRows.map((row) => row.values["総合計料金"]), 0);
+    const rankedRows = [...rows]
+        .sort((leftRow, rightRow) => {
+            const feeDiff = rightRow.values["総合計料金"] - leftRow.values["総合計料金"];
 
-    if (topRows.length === 0 || maxValue === 0) {
+            if (feeDiff !== 0) {
+                return feeDiff;
+            }
+
+            return `${leftRow.salesDestinationName}${leftRow.handlingLocationName}`.localeCompare(
+                `${rightRow.salesDestinationName}${rightRow.handlingLocationName}`,
+                "ja"
+            );
+        })
+        .filter((row) => row.values["総合計料金"] > 0);
+    const totalRevenue = rankedRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+
+    if (rankedRows.length === 0 || totalRevenue === 0) {
         const empty = document.createElement("div");
         empty.textContent = "表示できる集計結果がありません。";
         chartContainer.append(empty);
         return;
     }
 
-    for (const row of topRows) {
-        const chartRow = document.createElement("div");
-        chartRow.className = "tlgt-annual-panel__chart-row";
+    const topRows = rankedRows.slice(0, 5);
+    const topRevenue = topRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+    const chartEntries = topRows.map((row, index) => ({
+        label: `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`,
+        value: row.values["総合計料金"],
+        color: getPieChartColor(index)
+    }));
+
+    if (topRevenue < totalRevenue) {
+        chartEntries.push({
+            label: "その他",
+            value: totalRevenue - topRevenue,
+            color: getPieChartColor(PIE_CHART_COLORS.length - 1)
+        });
+    }
+
+    const layout = document.createElement("div");
+    layout.className = "tlgt-annual-panel__chart-layout";
+
+    const pieWrap = document.createElement("div");
+    pieWrap.className = "tlgt-annual-panel__pie-wrap";
+
+    const pie = document.createElement("div");
+    pie.className = "tlgt-annual-panel__pie";
+    pie.style.background = buildPieGradient(chartEntries);
+
+    const pieCenter = document.createElement("div");
+    pieCenter.className = "tlgt-annual-panel__pie-center";
+
+    const totalLabel = document.createElement("div");
+    totalLabel.className = "tlgt-annual-panel__pie-total-label";
+    totalLabel.textContent = "総合計料金合計";
+
+    const totalValue = document.createElement("div");
+    totalValue.className = "tlgt-annual-panel__pie-total-value";
+    totalValue.textContent = formatInteger(totalRevenue);
+
+    pieCenter.append(totalLabel, totalValue);
+    pieWrap.append(pie, pieCenter);
+
+    const legend = document.createElement("div");
+    legend.className = "tlgt-annual-panel__chart-legend";
+
+    for (const entry of chartEntries) {
+        const legendItem = document.createElement("div");
+        legendItem.className = "tlgt-annual-panel__chart-legend-item";
+
+        const color = document.createElement("div");
+        color.className = "tlgt-annual-panel__chart-color";
+        color.style.background = entry.color;
+
+        const labelWrap = document.createElement("div");
+        labelWrap.className = "tlgt-annual-panel__chart-label-wrap";
 
         const label = document.createElement("div");
         label.className = "tlgt-annual-panel__chart-label";
-        label.textContent = `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`;
+        label.textContent = entry.label;
 
-        const track = document.createElement("div");
-        track.className = "tlgt-annual-panel__chart-bar-track";
-
-        const fill = document.createElement("div");
-        fill.className = "tlgt-annual-panel__chart-bar-fill";
-        fill.style.width = `${(row.values["総合計料金"] / maxValue) * 100}%`;
-        track.append(fill);
+        const meta = document.createElement("div");
+        meta.className = "tlgt-annual-panel__chart-meta";
+        meta.textContent = `${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)}`;
 
         const value = document.createElement("div");
         value.className = "tlgt-annual-panel__chart-value";
-        value.textContent = formatInteger(row.values["総合計料金"]);
+        value.textContent = formatShareRate(entry.value / totalRevenue);
 
-        chartRow.append(label, track, value);
-        chartContainer.append(chartRow);
+        labelWrap.append(label, meta);
+        legendItem.append(color, labelWrap, value);
+        legend.append(legendItem);
     }
+
+    layout.append(pieWrap, legend);
+    chartContainer.append(layout);
 }
 
 function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): void {
@@ -1206,4 +1442,25 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
     table.append(thead, tbody);
     tableContainer.append(title, table);
+}
+
+function buildPieGradient(entries: Array<{ value: number; color: string }>): string {
+    let currentDegree = 0;
+    const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+
+    return `conic-gradient(${entries.map((entry) => {
+        const startDegree = currentDegree;
+        currentDegree += total === 0 ? 0 : (entry.value / total) * 360;
+        return `${entry.color} ${startDegree}deg ${currentDegree}deg`;
+    }).join(", ")})`;
+}
+
+function formatShareRate(value: number): string {
+    const percent = value * 100;
+    const rounded = Math.round(percent * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+}
+
+function getPieChartColor(index: number): string {
+    return PIE_CHART_COLORS[index % PIE_CHART_COLORS.length] ?? PIE_CHART_COLORS[0];
 }

@@ -4,8 +4,8 @@ Last Updated: 2026-04-26
 
 ## Current Task Bundle
 
-- 販売先別実績の月範囲集計 UI と画面表示を安定化する
-- GUI 確認結果を踏まえて後続の改善点を整理する
+- 年またぎ月範囲と表示・CSV 分離を実装する
+- Tampermonkey 反映後の GUI 確認をやり直す
 
 ## Current State
 
@@ -21,6 +21,9 @@ Last Updated: 2026-04-26
 - 統計データ画面に、対象年 + 対象月範囲の集計 UI を実装した
 - 集計結果のサマリー、グラフ、一覧テーブル表示を実装した
 - 指定月範囲の統合 CSV 出力を実装した
+- 年またぎ月範囲を開始年基準で扱えるように更新した
+- 画面表示と CSV 出力を別ボタンで実行できるように更新した
+- 総合計料金グラフを円グラフのシェア表示へ更新した
 
 ## Recent Done
 
@@ -35,11 +38,13 @@ Last Updated: 2026-04-26
 - 3 か月超の CSV 出力 request を採取し、error HTML と `MGSC0095` を確認した
 - ダウンロード済み CSV から列構成と再計算が必要な比率列を確認した
 - userscript を更新したブラウザ上で、集計パネルの表示と 2025 年 1 月〜12 月の実行結果を確認した
+- `npm run check` で年またぎ範囲、表示・CSV 分離、円グラフ化を含む最新コードの静的検証が通った
+- 実ブラウザを確認したところ、開いている TL-GroupTravel ページ上の userscript は旧版のままで、新 UI はまだ反映されていなかった
 
 ## Next Re-entry
 
 - 最初に読む正本: `docs/spec_001_sales_destination_annual_csv.md` と `docs/tasks_backlog.md`
-- 次にやること: GUI 確認を増やし、表・グラフの表示項目と並び順の調整要否を判断する
+- 次にやること: Tampermonkey へ最新 build を反映し、年またぎ範囲・表示ボタン・CSV ボタン・円グラフの GUI verify をやり直す
 
 ## Verify / Confirmation State
 
@@ -48,8 +53,10 @@ Last Updated: 2026-04-26
 - 実施済み: 実サイト上での DOM / request / response 観測
 - 実施済み: 3 か月超条件の server 側制約確認
 - 実施済み: 月範囲集計 userscript の GUI 実装
-- 実施済み: Tampermonkey 更新後の画面表示確認
 - 実施済み: 2025 年 1 月〜12 月の集計実行と CSV 出力確認
+- 実施済み: 年またぎ範囲、表示・CSV 分離、円グラフ化を含む `npm run check`
+- 未実施: Tampermonkey へ最新 build を反映した上での GUI 確認
+- 未実施: 年またぎ範囲の実サイト実行確認
 
 ## Open Questions / Risks
 
@@ -57,6 +64,7 @@ Last Updated: 2026-04-26
 - 実行中に複数チャンクのダウンロードをどう回収するかを userscript 側で安全に決める必要がある
 - 実績 0 行除外の最終条件は、運用上の期待とずれないかを spot check で追加確認する
 - グラフの指標は現在 `総合計料金` 固定のため、他指標切替が必要かは運用確認が必要
+- ブラウザ上の userscript が旧版のままだと、今回の UI 変更は確認できない
 
 ## References
 
