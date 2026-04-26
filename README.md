@@ -72,6 +72,14 @@ npm run check
 
 `userscript.config.mjs` が userscript metadata の正本です。配布物と Tampermonkey への投入物は `dist/*.user.js` を正とします。
 
+公開中の GitHub Pages サイト:
+
+- [https://nemukei.github.io/tl-grouptravel-userscript/](https://nemukei.github.io/tl-grouptravel-userscript/)
+
+Tampermonkey インストール用 userscript URL:
+
+- [https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js](https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js)
+
 GitHub Pages 配布を使う場合は、`GITHUB_PAGES_BASE_URL` をビルド時に渡すと `updateURL` と `downloadURL` が自動で入ります。
 
 ## 次にやること
