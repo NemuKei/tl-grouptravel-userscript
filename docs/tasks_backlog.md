@@ -8,7 +8,7 @@
 
 ## Phase 1
 
-- [ ] `P1-01` TL-GroupTravel の実 URL と metadata を確定する
+- [x] `P1-01` TL-GroupTravel の実 URL と metadata を確定する
   Done条件: `userscript.config.mjs` の `match` と `name` が対象サイト前提で確定している
 
 - [ ] `P1-02` Node.js と依存関係を導入する
@@ -27,6 +27,6 @@
 
 ## Next候補 (max 3)
 
-1. `P1-01`
-2. `P1-02`
-3. `P1-03`
+1. `P1-02`
+2. `P1-03`
+3. `P2-01`

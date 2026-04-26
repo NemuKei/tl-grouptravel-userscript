@@ -12,18 +12,19 @@ Last Updated: 2026-04-26
 - TypeScript + esbuild の userscript ビルド基盤を配置した
 - Chrome remote debugging 用の補助スクリプトを配置した
 - `docs/`、`AGENTS.md`、`README.md` の最小骨格を配置した
-- `userscript.config.mjs` の `match` は placeholder のままで、実 URL は未確定
+- `userscript.config.mjs` の `match` を `https://www.tl-gt.net/*` に更新した
 
 ## Recent Done
 
 - `tl-grouptravel-userscript` ディレクトリを新設した
 - starter 用の package / tsconfig / eslint / build scripts を追加した
 - GitHub Pages 配布のひな形を入れる前提の repo 骨格を追加した
+- 開いていた認証済み TL-GroupTravel ページから実 URL を確認し、metadata の `match` を確定した
 
 ## Next Re-entry
 
 - 最初に読む正本: `docs/tasks_backlog.md`
-- 次にやること: TL-GroupTravel の実 URL パターンと最初の対象画面を決め、`userscript.config.mjs` と `docs/spec_*.md` を更新する
+- 次にやること: 最初の対象画面を決め、`docs/spec_*.md` と `src/main.ts` を更新する
 
 ## Verify / Confirmation State
 
@@ -33,7 +34,6 @@ Last Updated: 2026-04-26
 
 ## Open Questions / Risks
 
-- TL-GroupTravel の実 URL パターンをまだ確定していない
 - 最初に対象にする画面と DOM / API 依存範囲をまだ決めていない
 - GitHub Pages 配布を使うかどうかはリポジトリ公開時に再判断が必要
 

@@ -17,7 +17,7 @@ export default {
     description: "TL-GroupTravel 向け userscript 開発基盤",
     author: "TL-GroupTravel Userscript Workspace",
     match: [
-        "https://example.com/*"
+        "https://www.tl-gt.net/*"
     ],
     updateURL: publishedUserscriptUrl,
     downloadURL: publishedUserscriptUrl,

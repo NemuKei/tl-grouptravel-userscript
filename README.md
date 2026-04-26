@@ -11,7 +11,7 @@ TL-GroupTravel 向け Tampermonkey ユーザースクリプトを、TypeScript �
 
 ## 現在の状態
 
-このリポジトリは starter の段階です。対象サイトの URL パターンや初回機能仕様は、後続スレッドで確定する前提にしています。
+このリポジトリは starter の段階です。対象サイトの初回機能仕様は、後続スレッドで確定する前提にしています。
 
 現時点では次だけを先に固定しています。
 
@@ -22,7 +22,7 @@ TL-GroupTravel 向け Tampermonkey ユーザースクリプトを、TypeScript �
 
 ## 重要な注意
 
-`userscript.config.mjs` の `match` はまだ placeholder です。実運用前に TL-GroupTravel の実 URL に置き換えてください。
+`userscript.config.mjs` の `match` は `https://www.tl-gt.net/*` に合わせました。どの画面を最初の対象にするかは、別スレッドで仕様として固定してください。
 
 ## 前提
 
@@ -67,6 +67,6 @@ GitHub Pages 配布を使う場合は、`GITHUB_PAGES_BASE_URL` をビルド時�
 
 ## 次にやること
 
-1. `userscript.config.mjs` の `match` を TL-GroupTravel の実 URL に置き換える
-2. 仕様スレッドで最初の対象画面と受け入れ条件を決める
-3. `src/main.ts` を対象画面に合わせて具体化する
+1. 仕様スレッドで最初の対象画面と受け入れ条件を決める
+2. `src/main.ts` を対象画面に合わせて具体化する
+3. Tampermonkey に `dist/*.user.js` を読み込み、対象画面で起動を確認する
