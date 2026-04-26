@@ -99,6 +99,13 @@ type AggregatedRow = {
     values: Record<SumColumn, number>;
 };
 
+type PieChartEntry = {
+    label: string;
+    value: number;
+    compareValue: number;
+    color: string;
+};
+
 type AnnualPanelElements = {
     displayButton: HTMLButtonElement;
     exportButton: HTMLButtonElement;
@@ -396,9 +403,17 @@ function injectStyle(): void {
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie {
             width: 100%;
             height: 100%;
-            border-radius: 50%;
-            border: 1px solid #dbeafe;
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+            display: block;
+            overflow: visible;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-segment {
+            cursor: default;
+            transition: opacity 120ms ease;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-segment:hover {
+            opacity: 0.86;
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-center {
@@ -1541,7 +1556,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     const topRows = rankedRows.slice(0, 5);
     const topRevenue = topRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
     const topCompareRevenue = topRows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
-    const chartEntries = topRows.map((row, index) => ({
+    const chartEntries: PieChartEntry[] = topRows.map((row, index) => ({
         label: `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`,
         value: row.values["総合計料金"],
         compareValue: row.values["総合計料金（比較期間）"],
@@ -1563,9 +1578,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     const pieWrap = document.createElement("div");
     pieWrap.className = "tlgt-annual-panel__pie-wrap";
 
-    const pie = document.createElement("div");
-    pie.className = "tlgt-annual-panel__pie";
-    pie.style.background = buildPieGradient(chartEntries);
+    const pie = buildPieChartSvg(chartEntries, totalRevenue, totalCompareRevenue);
 
     const pieCenter = document.createElement("div");
     pieCenter.className = "tlgt-annual-panel__pie-center";
@@ -1684,15 +1697,71 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     tableContainer.append(title, table);
 }
 
-function buildPieGradient(entries: Array<{ value: number; color: string }>): string {
-    let currentDegree = 0;
-    const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+function buildPieChartSvg(entries: PieChartEntry[], totalRevenue: number, totalCompareRevenue: number): SVGSVGElement {
+    const namespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(namespace, "svg");
+    const radius = 48;
+    const innerRadius = 24;
 
-    return `conic-gradient(${entries.map((entry) => {
-        const startDegree = currentDegree;
-        currentDegree += total === 0 ? 0 : (entry.value / total) * 360;
-        return `${entry.color} ${startDegree}deg ${currentDegree}deg`;
-    }).join(", ")})`;
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("class", "tlgt-annual-panel__pie");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "総合計料金シェア円グラフ");
+
+    let currentAngle = -90;
+
+    for (const entry of entries) {
+        const angleSpan = totalRevenue === 0 ? 0 : (entry.value / totalRevenue) * 360;
+        const path = document.createElementNS(namespace, "path");
+
+        path.setAttribute("d", describeDonutSegment(50, 50, innerRadius, radius, currentAngle, currentAngle + angleSpan));
+        path.setAttribute("fill", entry.color);
+        path.setAttribute("stroke", "#ffffff");
+        path.setAttribute("stroke-width", "1");
+        path.setAttribute("class", "tlgt-annual-panel__pie-segment");
+
+        const title = document.createElementNS(namespace, "title");
+        title.textContent = `${entry.label} | 当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)} | 前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`;
+
+        path.append(title);
+        svg.append(path);
+        currentAngle += angleSpan;
+    }
+
+    return svg;
+}
+
+function describeDonutSegment(
+    centerX: number,
+    centerY: number,
+    innerRadius: number,
+    outerRadius: number,
+    startAngle: number,
+    endAngle: number
+): string {
+    const safeEndAngle = endAngle === startAngle ? endAngle + 0.01 : endAngle;
+    const largeArcFlag = safeEndAngle - startAngle > 180 ? 1 : 0;
+    const outerStart = polarToCartesian(centerX, centerY, outerRadius, startAngle);
+    const outerEnd = polarToCartesian(centerX, centerY, outerRadius, safeEndAngle);
+    const innerEnd = polarToCartesian(centerX, centerY, innerRadius, safeEndAngle);
+    const innerStart = polarToCartesian(centerX, centerY, innerRadius, startAngle);
+
+    return [
+        `M ${outerStart.x} ${outerStart.y}`,
+        `A ${outerRadius} ${outerRadius} 0 ${largeArcFlag} 1 ${outerEnd.x} ${outerEnd.y}`,
+        `L ${innerEnd.x} ${innerEnd.y}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${innerStart.x} ${innerStart.y}`,
+        "Z"
+    ].join(" ");
+}
+
+function polarToCartesian(centerX: number, centerY: number, radius: number, angleInDegrees: number): { x: number; y: number } {
+    const angleInRadians = (angleInDegrees * Math.PI) / 180;
+
+    return {
+        x: centerX + (radius * Math.cos(angleInRadians)),
+        y: centerY + (radius * Math.sin(angleInRadians))
+    };
 }
 
 function formatShareRate(value: number): string {
