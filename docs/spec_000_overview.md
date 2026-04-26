@@ -27,6 +27,17 @@ TL-GroupTravel 向け Tampermonkey ユーザースクリプトを、TypeScript �
 - `scripts/open-chrome-debug.ps1`: デバッグ用 Chrome を専用プロファイルで起動
 - `scripts/attach-chrome.mjs`: CDP で Chrome へ接続し、ブラウザ制御の入口にする
 
+## Planned Workflow
+
+初回機能は、次の discovery-first の順序で固める。
+
+1. 壁打ちで対象画面、狙い、非目標を絞る
+2. 実サイトで DOM、API、画面遷移、認証依存を確認する
+3. 観測結果を `docs/tasks_backlog.md` へ具体タスクとして分解する
+4. 受け入れ条件を `docs/spec_*.md` に反映してから実装する
+
+この段階では、壁打ちだけで selector や endpoint を推測確定しない。実サイト確認を経た事実だけを task と spec の根拠に使う。
+
 ## Verification
 
 1. Node.js を導入する

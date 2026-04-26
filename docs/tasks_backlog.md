@@ -11,11 +11,17 @@
 - [x] `P1-01` TL-GroupTravel の実 URL と metadata を確定する
   Done条件: `userscript.config.mjs` の `match` と `name` が対象サイト前提で確定している
 
-- [ ] `P1-02` Node.js と依存関係を導入する
+- [x] `P1-02` Node.js と依存関係を導入する
   Done条件: `npm install` と `npm run check` が通る
 
-- [ ] `P1-03` Tampermonkey へ初回インポートする
-  Done条件: `dist/*.user.js` を Tampermonkey へ読ませて対象ページで起動確認できる
+- [ ] `P1-03` 壁打ちで最初の対象画面と非目標を絞る
+  Done条件: 次スレッドで扱う画面、狙い、非目標が 1 セットに絞られている
+
+- [ ] `P1-04` 実サイトで DOM と API の観測ポイントを整理する
+  Done条件: 対象画面の主要 DOM anchor、利用候補 API、認証前提、観測方法を説明できる
+
+- [ ] `P1-05` 観測結果を具体タスクへ分解する
+  Done条件: 実装可能な粒度の task が `docs/tasks_backlog.md` に追加され、順番と verify を説明できる
 
 ## Phase 2
 
@@ -25,8 +31,11 @@
 - [ ] `P2-02` 最初の画面拡張を実装する
   Done条件: 仕様に沿った最小機能が `src/` に入り、verify と GUI 確認結果を説明できる
 
+- [ ] `P2-03` Tampermonkey へ初回インポートして GUI verify を行う
+  Done条件: `dist/*.user.js` を Tampermonkey へ読ませて対象ページで起動確認できる
+
 ## Next候補 (max 3)
 
-1. `P1-02`
-2. `P1-03`
-3. `P2-01`
+1. `P1-03`
+2. `P1-04`
+3. `P1-05`

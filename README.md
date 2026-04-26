@@ -59,6 +59,15 @@ npm run check
 - `docs/context/DECISIONS.md`: 判断理由の正本
 - `docs/tasks_backlog.md`: 未実装タスクの管理
 
+## 次スレッドの進め方
+
+次スレッドは、いきなり実装へ入らず次の順序で進める前提です。
+
+1. 壁打ちで最初の対象画面、狙い、非目標を絞る
+2. 実サイト上で DOM、API、画面遷移、認証前提を確認する
+3. 観測結果を `docs/tasks_backlog.md` へ具体タスクとして落とし込む
+4. 受け入れ条件を `docs/spec_*.md` に反映してから実装へ進む
+
 ## 配布
 
 `userscript.config.mjs` が userscript metadata の正本です。配布物と Tampermonkey への投入物は `dist/*.user.js` を正とします。
@@ -67,6 +76,6 @@ GitHub Pages 配布を使う場合は、`GITHUB_PAGES_BASE_URL` をビルド時�
 
 ## 次にやること
 
-1. 仕様スレッドで最初の対象画面と受け入れ条件を決める
-2. `src/main.ts` を対象画面に合わせて具体化する
-3. Tampermonkey に `dist/*.user.js` を読み込み、対象画面で起動を確認する
+1. 壁打ちで最初の対象画面と非目標を絞る
+2. 実サイトで API、DOM、画面遷移を確認する
+3. 観測結果を task 化してから `src/main.ts` の具体実装へ進む
