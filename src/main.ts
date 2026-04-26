@@ -113,6 +113,8 @@ type PieChartEntry = {
 type PieChartMetricSnapshot = {
     actualRoomCount: number;
     washRate: number;
+    provisionalRoomCount: number;
+    washLostRoomCount: number;
     roomUnitPrice: number;
 };
 
@@ -381,6 +383,8 @@ function injectStyle(): void {
             color: #0f172a;
             font-size: 22px;
             font-weight: 700;
+            line-height: 1.15;
+            white-space: pre-line;
         }
 
         #${ANNUAL_CHART_ID} {
@@ -1507,13 +1511,21 @@ function buildPieChartMetricSnapshot(values: Record<SumColumn, number>, compareP
         ? {
             actualRoomCount: values["実績室数（比較期間）"],
             washRate: calculateWashRate(values, true),
+            provisionalRoomCount: values["仮予約時点室数（比較期間）"],
+            washLostRoomCount: values["目減り室数（比較期間）"],
             roomUnitPrice: calculateRoomUnitPrice(values, true)
         }
         : {
             actualRoomCount: values["実績室数"],
             washRate: calculateWashRate(values),
+            provisionalRoomCount: values["仮予約時点室数"],
+            washLostRoomCount: values["目減り室数"],
             roomUnitPrice: calculateRoomUnitPrice(values)
         };
+}
+
+function formatWashMetric(metrics: PieChartMetricSnapshot): string {
+    return `${formatPercentage(metrics.washRate)} (${formatInteger(metrics.washLostRoomCount)}/${formatInteger(metrics.provisionalRoomCount)})`;
 }
 
 function sumRowValues(rows: AggregatedRow[]): Record<SumColumn, number> {
@@ -1602,18 +1614,27 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
     const summary = document.createElement("div");
     summary.className = "tlgt-annual-panel__summary";
 
+    const totalValues = sumRowValues(rows);
     const totalRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
     const compareRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
     const totalCount = rows.reduce((sum, row) => sum + row.values["実績件数"], 0);
     const compareCount = rows.reduce((sum, row) => sum + row.values["実績件数（比較期間）"], 0);
+    const currentMetrics = buildPieChartMetricSnapshot(totalValues);
+    const compareMetrics = buildPieChartMetricSnapshot(totalValues, true);
     const period = buildRangePeriod(rangeSelection);
 
     const cards: Array<[string, string]> = [
-        ["対象期間", describeSelection(rangeSelection)],
-        ["前年同時期", `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜${period.compareTo.year}年${pad2(period.compareTo.month)}月`],
+        ["対象期間", describeSelection(rangeSelection).replace("〜", "〜\n")],
+        ["前年同時期", `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`],
         ["表示行数", `${rows.length}行`],
         ["実績件数合計", formatInteger(totalCount)],
         ["実績件数合計(前年)", formatInteger(compareCount)],
+        ["実績室数合計", formatInteger(currentMetrics.actualRoomCount)],
+        ["実績室数合計(前年)", formatInteger(compareMetrics.actualRoomCount)],
+        ["Wash率", formatWashMetric(currentMetrics)],
+        ["Wash率(前年)", formatWashMetric(compareMetrics)],
+        ["室単価", formatInteger(currentMetrics.roomUnitPrice)],
+        ["室単価(前年)", formatInteger(compareMetrics.roomUnitPrice)],
         ["総合計料金合計", formatInteger(totalRevenue)],
         ["総合計料金合計(前年)", formatInteger(compareRevenue)],
         ["総合計料金差額", formatSignedInteger(totalRevenue - compareRevenue)]
@@ -1729,11 +1750,11 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
         const currentMeta = document.createElement("div");
         currentMeta.className = "tlgt-annual-panel__chart-meta";
-        currentMeta.textContent = `当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)}`;
+        currentMeta.textContent = `当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)} / 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.metrics)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`;
 
         const compareMeta = document.createElement("div");
         compareMeta.className = "tlgt-annual-panel__chart-meta";
-        compareMeta.textContent = `前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`;
+        compareMeta.textContent = `前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)} / 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.compareMetrics)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`;
 
         const value = document.createElement("div");
         value.className = "tlgt-annual-panel__chart-value";
@@ -1890,7 +1911,7 @@ function showPieTooltip(
         ),
         createTooltipLine(
             "tlgt-annual-panel__pie-tooltip-line",
-            `当年指標: 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatPercentage(entry.metrics.washRate)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`,
+            `当年指標: 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.metrics)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`,
             true
         ),
         createTooltipLine(
@@ -1900,7 +1921,7 @@ function showPieTooltip(
         ),
         createTooltipLine(
             "tlgt-annual-panel__pie-tooltip-line",
-            `前年指標: 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatPercentage(entry.compareMetrics.washRate)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`,
+            `前年指標: 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.compareMetrics)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`,
             true
         )
     );

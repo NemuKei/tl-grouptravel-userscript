@@ -36,6 +36,8 @@ Last Updated: 2026-04-26
 - tooltip の表示位置をカーソル右側優先にし、必要に応じてグラフエリア外まで出せるようにした
 - 一覧に実績室数、延人数、Wash率、室料金合計、室単価を追加した
 - 催行率、Wash率、室単価を合算値から再計算するよう整理し、tooltip にも室数、Wash率、室単価を追加した
+- 円グラフ凡例にも室数、Wash率、室単価を追加し、Wash率 は `率 (目減り室数 / 仮予約時点室数)` の形式で表示するようにした
+- 全体サマリーに実績室数、Wash率、室単価を追加し、対象期間と前年同時期は 2 行表示で見やすさを確保した
 
 ## Recent Done
 
@@ -60,11 +62,12 @@ Last Updated: 2026-04-26
 - `npm run check` で 3 段構成のカスタム tooltip 追加を含む最新コードの静的検証が通った
 - `npm run check` で tooltip をグラフエリア外まで出せる位置調整を含む最新コードの静的検証が通った
 - `npm run check` で一覧列追加と tooltip 指標追加を含む最新コードの静的検証が通った
+- `npm run check` で凡例と全体サマリーの指標追加を含む最新コードの静的検証が通った
 
 ## Next Re-entry
 
 - 最初に読む正本: `docs/spec_001_sales_destination_annual_csv.md` と `docs/tasks_backlog.md`
-- 次にやること: Tampermonkey へ最新 build を反映し、開始年/終了年、4種類のクイック選択、一覧の追加列、tooltip、凡例の前年シェア表示を含む GUI verify をやり直す
+- 次にやること: Tampermonkey へ最新 build を反映し、開始年/終了年、4種類のクイック選択、一覧の追加列、tooltip、凡例、全体サマリーを含む GUI verify をやり直す
 
 ## Verify / Confirmation State
 
@@ -79,6 +82,7 @@ Last Updated: 2026-04-26
 - 実施済み: 一覧の売上順固定、追加クイック選択、凡例の前年シェア表示を含む `npm run check`
 - 実施済み: tooltip の 3 段構成、右側表示、グラフエリア外表示を含む `npm run check`
 - 実施済み: 実績室数、延人数、Wash率、室料金合計、室単価の一覧追加と tooltip 指標追加を含む `npm run check`
+- 実施済み: 凡例と全体サマリーへの実績室数、Wash率、室単価追加を含む `npm run check`
 - 未実施: Tampermonkey へ最新 build を反映した上での GUI 確認
 - 未実施: 年またぎ範囲の実サイト実行確認
 - 未実施: 4種類のクイック選択の実サイト確認
@@ -86,6 +90,7 @@ Last Updated: 2026-04-26
 - 未実施: 一覧の売上順と凡例の前年シェア表示の実サイト確認
 - 未実施: tooltip の hover 体験と edge 表示の実サイト確認
 - 未実施: 一覧の追加列と室単価の再計算値の実サイト確認
+- 未実施: 凡例と全体サマリーの追加指標、および Wash率 の分母表示の実サイト確認
 
 ## Open Questions / Risks
 
