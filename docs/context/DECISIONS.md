@@ -19,3 +19,4 @@
 - `D-20260426-013` | 2026-04-26 | 円グラフの詳細値は凡例だけでなく各セグメントの hover tooltip でも確認できるようにする | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-014` | 2026-04-26 | 円グラフ tooltip はネイティブ title ではなく即時表示のカスタム UI とし、販売先名、当年、前年の 3 段構成で表示する | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-015` | 2026-04-26 | 円グラフ tooltip はカーソル右側を優先し、必要に応じてグラフエリア外まで表示できるようにする | `docs/spec_001_sales_destination_annual_csv.md` | active
+- `D-20260426-016` | 2026-04-26 | 催行率、Wash率、室単価は分割 CSV の表示値をそのまま使わず、合算後の元数値から再計算する | `docs/spec_001_sales_destination_annual_csv.md` | active

@@ -35,6 +35,8 @@ const CSV_HEADER = [
     "延人数（比較期間）",
     "室料金合計",
     "室料金合計（比較期間）",
+    "室単価",
+    "室単価（比較期間）",
     "宿泊料金合計",
     "宿泊料金合計（比較期間）",
     "総合計料金",
@@ -104,6 +106,14 @@ type PieChartEntry = {
     value: number;
     compareValue: number;
     color: string;
+    metrics: PieChartMetricSnapshot;
+    compareMetrics: PieChartMetricSnapshot;
+};
+
+type PieChartMetricSnapshot = {
+    actualRoomCount: number;
+    washRate: number;
+    roomUnitPrice: number;
 };
 
 type AnnualPanelElements = {
@@ -454,7 +464,7 @@ function injectStyle(): void {
             color: #cbd5e1;
             font-size: 12px;
             line-height: 1.6;
-            white-space: nowrap;
+            white-space: normal;
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip-line strong {
@@ -1100,11 +1110,11 @@ function sortAggregatedRows(rows: AggregatedRow[], form: HTMLFormElement): Aggre
 
 function getSortValue(row: AggregatedRow, sortMode: string | null): number {
     if (sortMode === "2") {
-        return calculateRate(row.values["目減り室数"], row.values["仮予約時点室数"]);
+        return calculateWashRate(row.values);
     }
 
     if (sortMode === "1") {
-        return calculateRate(row.values["実績件数"], row.values["実績件数"] + row.values["CXL件数"]);
+        return calculateExecutionRate(row.values);
     }
 
     return row.values["総合計料金"];
@@ -1124,20 +1134,22 @@ function buildAnnualCsvText(rangeSelection: MonthRangeSelection, form: HTMLFormE
             formatInteger(row.values["実績件数（比較期間）"]),
             formatInteger(row.values["CXL件数"]),
             formatInteger(row.values["CXL件数（比較期間）"]),
-            formatPercentage(calculateRate(row.values["実績件数"], row.values["実績件数"] + row.values["CXL件数"])),
-            formatPercentage(calculateRate(row.values["実績件数（比較期間）"], row.values["実績件数（比較期間）"] + row.values["CXL件数（比較期間）"])),
+            formatPercentage(calculateExecutionRate(row.values)),
+            formatPercentage(calculateExecutionRate(row.values, true)),
             formatInteger(row.values["仮予約時点室数"]),
             formatInteger(row.values["仮予約時点室数（比較期間）"]),
             formatInteger(row.values["目減り室数"]),
             formatInteger(row.values["目減り室数（比較期間）"]),
-            formatPercentage(calculateRate(row.values["目減り室数"], row.values["仮予約時点室数"])),
-            formatPercentage(calculateRate(row.values["目減り室数（比較期間）"], row.values["仮予約時点室数（比較期間）"])),
+            formatPercentage(calculateWashRate(row.values)),
+            formatPercentage(calculateWashRate(row.values, true)),
             formatInteger(row.values["実績室数"]),
             formatInteger(row.values["実績室数（比較期間）"]),
             formatInteger(row.values["延人数"]),
             formatInteger(row.values["延人数（比較期間）"]),
             formatInteger(row.values["室料金合計"]),
             formatInteger(row.values["室料金合計（比較期間）"]),
+            formatInteger(calculateRoomUnitPrice(row.values)),
+            formatInteger(calculateRoomUnitPrice(row.values, true)),
             formatInteger(row.values["宿泊料金合計"]),
             formatInteger(row.values["宿泊料金合計（比較期間）"]),
             formatInteger(row.values["総合計料金"]),
@@ -1472,6 +1484,50 @@ function calculateRate(numerator: number, denominator: number): number {
     return numerator / denominator;
 }
 
+function calculateExecutionRate(values: Record<SumColumn, number>, comparePeriod = false): number {
+    return comparePeriod
+        ? calculateRate(values["実績件数（比較期間）"], values["実績件数（比較期間）"] + values["CXL件数（比較期間）"])
+        : calculateRate(values["実績件数"], values["実績件数"] + values["CXL件数"]);
+}
+
+function calculateWashRate(values: Record<SumColumn, number>, comparePeriod = false): number {
+    return comparePeriod
+        ? calculateRate(values["目減り室数（比較期間）"], values["仮予約時点室数（比較期間）"])
+        : calculateRate(values["目減り室数"], values["仮予約時点室数"]);
+}
+
+function calculateRoomUnitPrice(values: Record<SumColumn, number>, comparePeriod = false): number {
+    return comparePeriod
+        ? calculateRate(values["室料金合計（比較期間）"], values["実績室数（比較期間）"])
+        : calculateRate(values["室料金合計"], values["実績室数"]);
+}
+
+function buildPieChartMetricSnapshot(values: Record<SumColumn, number>, comparePeriod = false): PieChartMetricSnapshot {
+    return comparePeriod
+        ? {
+            actualRoomCount: values["実績室数（比較期間）"],
+            washRate: calculateWashRate(values, true),
+            roomUnitPrice: calculateRoomUnitPrice(values, true)
+        }
+        : {
+            actualRoomCount: values["実績室数"],
+            washRate: calculateWashRate(values),
+            roomUnitPrice: calculateRoomUnitPrice(values)
+        };
+}
+
+function sumRowValues(rows: AggregatedRow[]): Record<SumColumn, number> {
+    const summedValues = createEmptyAggregatedRow("", "").values;
+
+    for (const row of rows) {
+        for (const column of SUM_COLUMNS) {
+            summedValues[column] += row.values[column];
+        }
+    }
+
+    return summedValues;
+}
+
 function formatPercentage(value: number): string {
     return `${Math.round(value * 100)}%`;
 }
@@ -1606,15 +1662,21 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
         label: `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`,
         value: row.values["総合計料金"],
         compareValue: row.values["総合計料金（比較期間）"],
-        color: getPieChartColor(index)
+        color: getPieChartColor(index),
+        metrics: buildPieChartMetricSnapshot(row.values),
+        compareMetrics: buildPieChartMetricSnapshot(row.values, true)
     }));
 
     if (topRevenue < totalRevenue) {
+        const otherValues = sumRowValues(rankedRows.slice(5));
+
         chartEntries.push({
             label: "その他",
             value: totalRevenue - topRevenue,
             compareValue: Math.max(totalCompareRevenue - topCompareRevenue, 0),
-            color: getPieChartColor(PIE_CHART_COLORS.length - 1)
+            color: getPieChartColor(PIE_CHART_COLORS.length - 1),
+            metrics: buildPieChartMetricSnapshot(otherValues),
+            compareMetrics: buildPieChartMetricSnapshot(otherValues, true)
         });
     }
 
@@ -1701,6 +1763,16 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
         "実績件数",
         "実績件数(前年)",
         "催行率",
+        "実績室数",
+        "実績室数(前年)",
+        "延人数",
+        "延人数(前年)",
+        "Wash率",
+        "Wash率(前年)",
+        "室料金合計",
+        "室料金合計(前年)",
+        "室単価",
+        "室単価(前年)",
         "総合計料金",
         "総合計料金(前年)",
         "差額"
@@ -1723,7 +1795,17 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
             row.handlingLocationName || "-",
             formatInteger(row.values["実績件数"]),
             formatInteger(row.values["実績件数（比較期間）"]),
-            formatPercentage(calculateRate(row.values["実績件数"], row.values["実績件数"] + row.values["CXL件数"])),
+            formatPercentage(calculateExecutionRate(row.values)),
+            formatInteger(row.values["実績室数"]),
+            formatInteger(row.values["実績室数（比較期間）"]),
+            formatInteger(row.values["延人数"]),
+            formatInteger(row.values["延人数（比較期間）"]),
+            formatPercentage(calculateWashRate(row.values)),
+            formatPercentage(calculateWashRate(row.values, true)),
+            formatInteger(row.values["室料金合計"]),
+            formatInteger(row.values["室料金合計（比較期間）"]),
+            formatInteger(calculateRoomUnitPrice(row.values)),
+            formatInteger(calculateRoomUnitPrice(row.values, true)),
             formatInteger(row.values["総合計料金"]),
             formatInteger(row.values["総合計料金（比較期間）"]),
             formatSignedInteger(row.values["総合計料金"] - row.values["総合計料金（比較期間）"])
@@ -1808,7 +1890,17 @@ function showPieTooltip(
         ),
         createTooltipLine(
             "tlgt-annual-panel__pie-tooltip-line",
+            `当年指標: 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatPercentage(entry.metrics.washRate)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`,
+            true
+        ),
+        createTooltipLine(
+            "tlgt-annual-panel__pie-tooltip-line",
             `前年: ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`,
+            true
+        ),
+        createTooltipLine(
+            "tlgt-annual-panel__pie-tooltip-line",
+            `前年指標: 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatPercentage(entry.compareMetrics.washRate)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`,
             true
         )
     );
