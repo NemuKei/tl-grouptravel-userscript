@@ -40,13 +40,12 @@
 - [x] `P2-05` Tampermonkey へ初回インポートして GUI verify を行う
   Done条件: `dist/*.user.js` を Tampermonkey へ読ませ、年間集計 CSV の出力を確認できる
 
-- [ ] `P2-06` 月範囲 UI と表示内容を運用に合わせて磨く
+- [x] `P2-06` 月範囲 UI と表示内容を運用に合わせて磨く
   Done条件: 開始年/終了年、4種類のクイック選択、前年同時期比較、一覧の売上順、凡例の前年シェア表示、tooltip の hover 体験を含む UI が運用上の要望を満たしている
 
-- [ ] `P2-07` 最新 build を Tampermonkey へ反映して GUI verify を更新する
+- [x] `P2-07` 最新 build を Tampermonkey へ反映して GUI verify を更新する
   Done条件: 開始年/終了年、4種類のクイック選択、前年同時期比較、一覧の売上順、円グラフ凡例の前年シェア表示、tooltip の edge 表示を実サイトで確認できる
 
 ## Next候補 (max 3)
 
-1. `P2-07`
-2. `P2-06`
+現時点では未着手の次候補なし。新要望が出た時点で追加する。

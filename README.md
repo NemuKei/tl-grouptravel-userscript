@@ -77,8 +77,9 @@ GitHub Pages 配布を使う場合は、`GITHUB_PAGES_BASE_URL` をビルド時�
 
 ## 現在の検証状況
 
-- 実施済み: `npm run check`、統計データ画面の DOM / request / response 観測、backend の 3 か月制約確認、2025年1月〜12月の集計実行と CSV 出力確認、円グラフ tooltip を含む静的実装確認
-- 未実施または継続確認が必要: Tampermonkey に最新 build を反映した状態での GUI 総合確認、4 種類のクイック選択の実サイト確認、tooltip の最終的な hover 体験と edge case の確認
+- 実施済み: `npm run check`、統計データ画面の DOM / request / response 観測、backend の 3 か月制約確認、2025年1月〜12月の集計実行と CSV 出力確認、最新 build を Tampermonkey へ反映した状態での GUI 総合確認
+- 実施済み: 4 種類のクイック選択、前年同時期比較、一覧の売上順、凡例、tooltip、全体サマリーの 2 行レイアウトと配色を実サイトで確認
+- 継続確認が必要: 実績 0 行除外や指標切替要否など、将来要望に応じた運用 spot check
 
 ## ドキュメントの正本
 
