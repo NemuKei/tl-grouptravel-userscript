@@ -103,7 +103,9 @@ type AnnualPanelElements = {
     displayButton: HTMLButtonElement;
     exportButton: HTMLButtonElement;
     recentButton: HTMLButtonElement;
+    yearButton: HTMLButtonElement;
     fiscalButton: HTMLButtonElement;
+    fiscalJuneButton: HTMLButtonElement;
     startYearSelect: HTMLSelectElement;
     endYearSelect: HTMLSelectElement;
     fromMonthSelect: HTMLSelectElement;
@@ -379,14 +381,14 @@ function injectStyle(): void {
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-layout {
             display: grid;
-            grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+            grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
             gap: 16px;
             align-items: start;
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-wrap {
             position: relative;
-            width: min(240px, 100%);
+            width: min(300px, 100%);
             aspect-ratio: 1;
             margin: 0 auto;
         }
@@ -451,6 +453,12 @@ function injectStyle(): void {
             min-width: 0;
         }
 
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-metrics {
+            display: grid;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-label,
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-meta {
             font-size: 12px;
@@ -464,7 +472,6 @@ function injectStyle(): void {
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-meta {
-            margin-top: 4px;
             color: #64748b;
         }
 
@@ -559,12 +566,22 @@ function mountAnnualCsvPanel(): void {
     recentButton.className = "tlgt-annual-panel__shortcut";
     recentButton.textContent = "直近12か月";
 
+    const yearButton = document.createElement("button");
+    yearButton.type = "button";
+    yearButton.className = "tlgt-annual-panel__shortcut";
+    yearButton.textContent = "年(1月〜12月)";
+
     const fiscalButton = document.createElement("button");
     fiscalButton.type = "button";
     fiscalButton.className = "tlgt-annual-panel__shortcut";
     fiscalButton.textContent = "年度(4月〜3月)";
 
-    shortcutGroup.append(recentButton, fiscalButton);
+    const fiscalJuneButton = document.createElement("button");
+    fiscalJuneButton.type = "button";
+    fiscalJuneButton.className = "tlgt-annual-panel__shortcut";
+    fiscalJuneButton.textContent = "年度(6月〜5月)";
+
+    shortcutGroup.append(recentButton, yearButton, fiscalButton, fiscalJuneButton);
     shortcutLabel.append(shortcutGroup);
 
     const startYearLabel = document.createElement("label");
@@ -657,7 +674,9 @@ function mountAnnualCsvPanel(): void {
         displayButton,
         exportButton,
         recentButton,
+        yearButton,
         fiscalButton,
+        fiscalJuneButton,
         startYearSelect,
         endYearSelect,
         fromMonthSelect,
@@ -684,8 +703,18 @@ function mountAnnualCsvPanel(): void {
         syncPeriodPreview(elements);
     });
 
+    yearButton.addEventListener("click", () => {
+        applyCalendarYearPreset(elements);
+        syncPeriodPreview(elements);
+    });
+
     fiscalButton.addEventListener("click", () => {
         applyFiscalYearPreset(elements);
+        syncPeriodPreview(elements);
+    });
+
+    fiscalJuneButton.addEventListener("click", () => {
+        applyFiscalJuneYearPreset(elements);
         syncPeriodPreview(elements);
     });
 
@@ -1153,6 +1182,17 @@ function applyRecentYearPreset(elements: AnnualPanelElements): void {
     });
 }
 
+function applyCalendarYearPreset(elements: AnnualPanelElements): void {
+    const startYear = Number.parseInt(elements.startYearSelect.value, 10);
+
+    setRangeSelectionValues(elements, {
+        startYear,
+        endYear: startYear,
+        fromMonth: 1,
+        toMonth: 12
+    });
+}
+
 function applyFiscalYearPreset(elements: AnnualPanelElements): void {
     const startYear = Number.parseInt(elements.startYearSelect.value, 10);
 
@@ -1161,6 +1201,17 @@ function applyFiscalYearPreset(elements: AnnualPanelElements): void {
         endYear: startYear + 1,
         fromMonth: 4,
         toMonth: 3
+    });
+}
+
+function applyFiscalJuneYearPreset(elements: AnnualPanelElements): void {
+    const startYear = Number.parseInt(elements.startYearSelect.value, 10);
+
+    setRangeSelectionValues(elements, {
+        startYear,
+        endYear: startYear + 1,
+        fromMonth: 6,
+        toMonth: 5
     });
 }
 
@@ -1475,21 +1526,9 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     title.textContent = "総合計料金 シェア";
     chartContainer.append(title);
 
-    const rankedRows = [...rows]
-        .sort((leftRow, rightRow) => {
-            const feeDiff = rightRow.values["総合計料金"] - leftRow.values["総合計料金"];
-
-            if (feeDiff !== 0) {
-                return feeDiff;
-            }
-
-            return `${leftRow.salesDestinationName}${leftRow.handlingLocationName}`.localeCompare(
-                `${rightRow.salesDestinationName}${rightRow.handlingLocationName}`,
-                "ja"
-            );
-        })
-        .filter((row) => row.values["総合計料金"] > 0);
+    const rankedRows = sortRowsByRevenueDesc(rows).filter((row) => row.values["総合計料金"] > 0);
     const totalRevenue = rankedRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+    const totalCompareRevenue = rankedRows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
 
     if (rankedRows.length === 0 || totalRevenue === 0) {
         const empty = document.createElement("div");
@@ -1500,9 +1539,11 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
     const topRows = rankedRows.slice(0, 5);
     const topRevenue = topRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+    const topCompareRevenue = topRows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
     const chartEntries = topRows.map((row, index) => ({
         label: `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`,
         value: row.values["総合計料金"],
+        compareValue: row.values["総合計料金（比較期間）"],
         color: getPieChartColor(index)
     }));
 
@@ -1510,6 +1551,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
         chartEntries.push({
             label: "その他",
             value: totalRevenue - topRevenue,
+            compareValue: Math.max(totalCompareRevenue - topCompareRevenue, 0),
             color: getPieChartColor(PIE_CHART_COLORS.length - 1)
         });
     }
@@ -1556,15 +1598,23 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
         label.className = "tlgt-annual-panel__chart-label";
         label.textContent = entry.label;
 
-        const meta = document.createElement("div");
-        meta.className = "tlgt-annual-panel__chart-meta";
-        meta.textContent = `${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)}`;
+        const metrics = document.createElement("div");
+        metrics.className = "tlgt-annual-panel__chart-metrics";
+
+        const currentMeta = document.createElement("div");
+        currentMeta.className = "tlgt-annual-panel__chart-meta";
+        currentMeta.textContent = `当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)}`;
+
+        const compareMeta = document.createElement("div");
+        compareMeta.className = "tlgt-annual-panel__chart-meta";
+        compareMeta.textContent = `前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`;
 
         const value = document.createElement("div");
         value.className = "tlgt-annual-panel__chart-value";
         value.textContent = formatShareRate(entry.value / totalRevenue);
 
-        labelWrap.append(label, meta);
+        metrics.append(currentMeta, compareMeta);
+        labelWrap.append(label, metrics);
         legendItem.append(color, labelWrap, value);
         legend.append(legendItem);
     }
@@ -1576,7 +1626,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): void {
     const title = document.createElement("h4");
     title.className = "tlgt-annual-panel__table-title";
-    title.textContent = "集計結果一覧";
+    title.textContent = "集計結果一覧 (売上順)";
 
     const table = document.createElement("table");
     const thead = document.createElement("thead");
@@ -1602,7 +1652,7 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
     const tbody = document.createElement("tbody");
 
-    for (const row of rows) {
+    for (const row of sortRowsByRevenueDesc(rows)) {
         const tr = document.createElement("tr");
         const cells = [
             row.salesDestinationName,
@@ -1648,6 +1698,21 @@ function formatShareRate(value: number): string {
     const percent = value * 100;
     const rounded = Math.round(percent * 10) / 10;
     return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+}
+
+function sortRowsByRevenueDesc(rows: AggregatedRow[]): AggregatedRow[] {
+    return [...rows].sort((leftRow, rightRow) => {
+        const feeDiff = rightRow.values["総合計料金"] - leftRow.values["総合計料金"];
+
+        if (feeDiff !== 0) {
+            return feeDiff;
+        }
+
+        return `${leftRow.salesDestinationName}${leftRow.handlingLocationName}`.localeCompare(
+            `${rightRow.salesDestinationName}${rightRow.handlingLocationName}`,
+            "ja"
+        );
+    });
 }
 
 function getPieChartColor(index: number): string {
