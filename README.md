@@ -1,37 +1,40 @@
 # TL-GroupTravel Userscript
 
-TL-GroupTravel 向け Tampermonkey ユーザースクリプトを、TypeScript で開発・ビルド・検証するための専用ワークスペースです。
+TL-GroupTravel の統計データ画面に、販売先 x 取扱個所単位の期間集計 UI を追加する Tampermonkey userscript の開発リポジトリです。
 
-## 目的
+現時点では、統計データ画面の既存 CSV 出力を 3 か月単位で分割取得し、userscript 側で再集計して、画面表示と統合 CSV 出力を行う機能まで実装済みです。
 
-- TypeScript で userscript を記述する
-- `dist/*.user.js` を安定して生成する
-- Chrome に remote debugging で接続し、将来的な自動操作や検証へつなげる
-- TL-GroupTravel 向け仕様を別スレッドで具体化できる土台を先に整える
+## 現在の機能
 
-## 現在の状態
+- 対象画面: `https://www.tl-gt.net/accomodation/Gscsc4010BackTo4000Action.do`
+- 集計単位: 販売先 x 取扱個所
+- 集計期間: 開始年、終了年、開始月、終了月の指定
+- 期間上限: 12 か月以内
+- クイック選択: `直近12か月`、`年(1月〜12月)`、`年度(4月〜3月)`、`年度(6月〜5月)`
+- `直近12か月` は前月終点の確定実績ベース
+- 実行モード: 画面表示のみ、統合 CSV 出力のみ
+- 表示内容: 集計サマリー、前年同時期比較、総合計料金シェア円グラフ、集計結果一覧
+- 円グラフは総合計料金の上位項目を表示し、凡例に当年 / 前年のシェア率と売上を表示する
+- 円グラフの hover では `販売先`、`当年`、`前年` の 3 段 tooltip を表示する
+- 一覧の並び順は総合計料金の降順固定
+- 0 実績行は既定で除外し、checkbox で含めることも可能
 
-このリポジトリは starter の段階です。対象サイトの初回機能仕様は、後続スレッドで確定する前提にしています。
+## 重要な制約
 
-現時点では次だけを先に固定しています。
-
-- userscript のビルド基盤
-- Chrome remote debugging の起動補助
-- GitHub Pages 配布のひな形
-- `docs/` と `AGENTS.md` を起点にした運用骨格
-
-## 重要な注意
-
-`userscript.config.mjs` の `match` は `https://www.tl-gt.net/*` に合わせました。どの画面を最初の対象にするかは、別スレッドで仕様として固定してください。
+- backend 側の `Gscsc4010CsvOutAction.do` は、集計期間・比較期間とも 3 か月以内でないと失敗する
+- そのため、年間または年またぎ集計は backend の 1 回呼び出しではなく、userscript 側の分割取得と再集計で実現している
+- 成功レスポンスは添付 CSV、失敗時は HTML になるため、HTTP 200 だけでは成功判定できない
+- この userscript は統計データ画面の既存条件を前提にするため、TL-GroupTravel の認証済みセッションが必要
+- 集計は `販売先単位` かつ `取扱個所まで集計単位に含める` が前提
 
 ## 前提
 
 1. Node.js 22 LTS 以上
 2. Google Chrome
 3. Chrome 拡張の Tampermonkey
-4. `npm run chrome:debug` を使う場合は PowerShell 7 (`pwsh`)
+4. `pwsh`
 
-## 初期セットアップ
+## セットアップ
 
 ```powershell
 npm install
@@ -41,49 +44,55 @@ npm run check
 ## 開発コマンド
 
 - `npm run dev`: `dist/*.user.js` を watch build
-- `npm run build`: 本番向けに 1 回ビルド
+- `npm run build`: 1 回ビルド
 - `npm run typecheck`: TypeScript の型検査
 - `npm run lint`: ESLint 実行
 - `npm run check`: 型検査、lint、build をまとめて実行
-- `npm run chrome:debug`: デバッグポート 9222 付きの Chrome を専用プロファイルで起動
-- `npm run chrome:debug:default-profile`: 既存の Chrome Default プロファイルを remote debugging 付きで起動
-- `npm run chrome:debug:default-profile:resume`: 既存の Chrome Default プロファイルを前回セッション復元付きで起動
+- `npm run chrome:debug`: 専用プロファイルで remote debugging Chrome を起動
+- `npm run chrome:debug:default-profile`: Default プロファイルを remote debugging 付きで起動
+- `npm run chrome:debug:default-profile:resume`: Default プロファイルを前回セッション復元付きで起動
 - `npm run chrome:profiles`: 利用可能な Chrome プロファイルを一覧表示
-- `npm run chrome:pages`: CDP 経由で Chrome に接続し、開いているページを一覧表示
+- `npm run chrome:pages`: CDP 経由で Chrome のページ一覧を表示
 
-## ドキュメントの正本
+## Tampermonkey 反映
 
-- `AGENTS.md`: リポジトリ全体の常設ルール
-- `docs/spec_000_overview.md`: リポジトリ全体の仕様概要
-- `docs/context/STATUS.md`: 現況の正本
-- `docs/context/DECISIONS.md`: 判断理由の正本
-- `docs/tasks_backlog.md`: 未実装タスクの管理
-
-## 次スレッドの進め方
-
-次スレッドは、いきなり実装へ入らず次の順序で進める前提です。
-
-1. 壁打ちで最初の対象画面、狙い、非目標を絞る
-2. 実サイト上で DOM、API、画面遷移、認証前提を確認する
-3. 観測結果を `docs/tasks_backlog.md` へ具体タスクとして落とし込む
-4. 受け入れ条件を `docs/spec_*.md` に反映してから実装へ進む
-
-## 配布
-
-`userscript.config.mjs` が userscript metadata の正本です。配布物と Tampermonkey への投入物は `dist/*.user.js` を正とします。
-
-公開中の GitHub Pages サイト:
-
-- [https://nemukei.github.io/tl-grouptravel-userscript/](https://nemukei.github.io/tl-grouptravel-userscript/)
-
-Tampermonkey インストール用 userscript URL:
-
-- [https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js](https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js)
+- 配布物と Tampermonkey へ投入するファイルは `dist/*.user.js`
+- userscript metadata の正本は `userscript.config.mjs`
+- GitHub Pages 配布 URL: [https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js](https://nemukei.github.io/tl-grouptravel-userscript/tl-grouptravel-userscript.user.js)
 
 GitHub Pages 配布を使う場合は、`GITHUB_PAGES_BASE_URL` をビルド時に渡すと `updateURL` と `downloadURL` が自動で入ります。
 
-## 次にやること
+## 実画面での基本確認手順
 
-1. 壁打ちで最初の対象画面と非目標を絞る
-2. 実サイトで API、DOM、画面遷移を確認する
-3. 観測結果を task 化してから `src/main.ts` の具体実装へ進む
+1. Tampermonkey に最新の `dist/*.user.js` を反映する
+2. TL-GroupTravel の統計データ画面を開く
+3. `販売先単位` を選ぶ
+4. `取扱個所まで集計単位に含める` を有効にする
+5. 必要に応じて販売先条件を指定する
+6. クイック選択または開始年 / 終了年 / 月で対象期間を作る
+7. `表示する` で画面表示、`CSV を出力` で統合 CSV 出力を確認する
+8. 円グラフの hover tooltip、一覧の売上順、前年同時期比較を確認する
+
+## 現在の検証状況
+
+- 実施済み: `npm run check`、統計データ画面の DOM / request / response 観測、backend の 3 か月制約確認、2025年1月〜12月の集計実行と CSV 出力確認、円グラフ tooltip を含む静的実装確認
+- 未実施または継続確認が必要: Tampermonkey に最新 build を反映した状態での GUI 総合確認、4 種類のクイック選択の実サイト確認、tooltip の最終的な hover 体験と edge case の確認
+
+## ドキュメントの正本
+
+- `AGENTS.md`: リポジトリ常設ルール
+- `docs/spec_000_overview.md`: リポジトリ全体の概要
+- `docs/spec_001_sales_destination_annual_csv.md`: 統計データ画面の期間集計仕様
+- `docs/context/STATUS.md`: 現況と再開ポイント
+- `docs/context/DECISIONS.md`: 判断理由
+- `docs/tasks_backlog.md`: 未完了タスク
+
+## 次スレッドの開始順
+
+1. `AGENTS.md`
+2. `docs/spec_001_sales_destination_annual_csv.md`
+3. `docs/context/STATUS.md`
+4. `docs/context/DECISIONS.md`
+5. `docs/tasks_backlog.md`
+
+この順で読めば、仕様、現況、判断理由、残件まで追えるようにしてあります。

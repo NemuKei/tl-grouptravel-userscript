@@ -4,9 +4,8 @@ Last Updated: 2026-04-26
 
 ## Current Task Bundle
 
-- 開始年/終了年ベースの期間指定とクイック選択を実装する
-- 前年同時期比較を画面表示へ広げる
-- Tampermonkey 反映後の GUI 確認をやり直す
+- 最新の集計 UI を Tampermonkey 反映後に実画面で総合確認する
+- tooltip とクイック選択の edge case を詰める
 
 ## Current State
 
@@ -34,6 +33,7 @@ Last Updated: 2026-04-26
 - 直近12か月のクイック選択を前月起点の確定実績ベースへ調整した
 - 円グラフをSVGセグメント化し、hover tooltip で詳細を見られるようにした
 - 円グラフ tooltip をカスタム UI に置き換え、販売先名、当年、前年の 3 段構成で即時表示するようにした
+- tooltip の表示位置をカーソル右側優先にし、必要に応じてグラフエリア外まで出せるようにした
 
 ## Recent Done
 
@@ -56,11 +56,12 @@ Last Updated: 2026-04-26
 - `npm run check` で直近12か月の前月起点調整を含む最新コードの静的検証が通った
 - `npm run check` で円グラフ tooltip 追加を含む最新コードの静的検証が通った
 - `npm run check` で 3 段構成のカスタム tooltip 追加を含む最新コードの静的検証が通った
+- `npm run check` で tooltip をグラフエリア外まで出せる位置調整を含む最新コードの静的検証が通った
 
 ## Next Re-entry
 
 - 最初に読む正本: `docs/spec_001_sales_destination_annual_csv.md` と `docs/tasks_backlog.md`
-- 次にやること: Tampermonkey へ最新 build を反映し、開始年/終了年、4種類のクイック選択、一覧の売上順、凡例の前年シェア表示を含む GUI verify をやり直す
+- 次にやること: Tampermonkey へ最新 build を反映し、開始年/終了年、4種類のクイック選択、一覧の売上順、tooltip、凡例の前年シェア表示を含む GUI verify をやり直す
 
 ## Verify / Confirmation State
 
@@ -73,11 +74,13 @@ Last Updated: 2026-04-26
 - 実施済み: 年またぎ範囲、表示・CSV 分離、円グラフ化を含む `npm run check`
 - 実施済み: 開始年/終了年、クイック選択、前年同時期比較を含む `npm run check`
 - 実施済み: 一覧の売上順固定、追加クイック選択、凡例の前年シェア表示を含む `npm run check`
+- 実施済み: tooltip の 3 段構成、右側表示、グラフエリア外表示を含む `npm run check`
 - 未実施: Tampermonkey へ最新 build を反映した上での GUI 確認
 - 未実施: 年またぎ範囲の実サイト実行確認
 - 未実施: 4種類のクイック選択の実サイト確認
 - 未実施: 前年同時期比較表示の実サイト確認
 - 未実施: 一覧の売上順と凡例の前年シェア表示の実サイト確認
+- 未実施: tooltip の hover 体験と edge 表示の実サイト確認
 
 ## Open Questions / Risks
 
@@ -85,7 +88,7 @@ Last Updated: 2026-04-26
 - 実行中に複数チャンクのダウンロードをどう回収するかを userscript 側で安全に決める必要がある
 - 実績 0 行除外の最終条件は、運用上の期待とずれないかを spot check で追加確認する
 - グラフの指標は現在 `総合計料金` 固定のため、他指標切替が必要かは運用確認が必要
-- ブラウザ上の userscript が旧版のままだと、今回の UI 変更は確認できない
+- 最新 build を Tampermonkey へ反映しないと、tooltip やクイック選択の確認結果が古い UI と混ざる
 
 ## References
 
