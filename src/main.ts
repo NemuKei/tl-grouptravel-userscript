@@ -362,7 +362,12 @@ function injectStyle(): void {
 
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
             gap: 12px;
         }
 
@@ -371,6 +376,24 @@ function injectStyle(): void {
             border-radius: 12px;
             background: #eff6ff;
             border: 1px solid #bfdbfe;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="compare"] {
+            background: #fff1f2;
+            border-color: #fecdd3;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="compare"] .tlgt-annual-panel__summary-label {
+            color: #9f1239;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="compare"] .tlgt-annual-panel__summary-value {
+            color: #881337;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="ghost"] {
+            visibility: hidden;
+            pointer-events: none;
         }
 
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-label {
@@ -385,6 +408,18 @@ function injectStyle(): void {
             font-weight: 700;
             line-height: 1.15;
             white-space: pre-line;
+        }
+
+        @media (max-width: 1680px) {
+            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 960px) {
+            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
 
         #${ANNUAL_CHART_ID} {
@@ -1623,37 +1658,53 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
     const compareMetrics = buildPieChartMetricSnapshot(totalValues, true);
     const period = buildRangePeriod(rangeSelection);
 
-    const cards: Array<[string, string]> = [
-        ["対象期間", describeSelection(rangeSelection).replace("〜", "〜\n")],
-        ["前年同時期", `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`],
-        ["表示行数", `${rows.length}行`],
-        ["実績件数合計", formatInteger(totalCount)],
-        ["実績件数合計(前年)", formatInteger(compareCount)],
-        ["実績室数合計", formatInteger(currentMetrics.actualRoomCount)],
-        ["実績室数合計(前年)", formatInteger(compareMetrics.actualRoomCount)],
-        ["Wash率", formatWashMetric(currentMetrics)],
-        ["Wash率(前年)", formatWashMetric(compareMetrics)],
-        ["室単価", formatInteger(currentMetrics.roomUnitPrice)],
-        ["室単価(前年)", formatInteger(compareMetrics.roomUnitPrice)],
-        ["総合計料金合計", formatInteger(totalRevenue)],
-        ["総合計料金合計(前年)", formatInteger(compareRevenue)],
-        ["総合計料金差額", formatSignedInteger(totalRevenue - compareRevenue)]
-    ];
+    const currentRowCards = [
+        { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
+        { label: "表示行数", value: `${rows.length}行`, tone: "current" },
+        { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
+        { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
+        { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
+        { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
+        { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
+        { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" }
+    ] as const;
 
-    for (const [label, value] of cards) {
-        const card = document.createElement("div");
-        card.className = "tlgt-annual-panel__summary-card";
+    const compareRowCards = [
+        { label: "前年同時期", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+        { label: "", value: "", tone: "ghost" },
+        { label: "実績件数合計(前年)", value: formatInteger(compareCount), tone: "compare" },
+        { label: "実績室数合計(前年)", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
+        { label: "Wash率(前年)", value: formatWashMetric(compareMetrics), tone: "compare" },
+        { label: "室単価(前年)", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
+        { label: "総合計料金合計(前年)", value: formatInteger(compareRevenue), tone: "compare" },
+        { label: "", value: "", tone: "ghost" }
+    ] as const;
 
-        const labelElement = document.createElement("div");
-        labelElement.className = "tlgt-annual-panel__summary-label";
-        labelElement.textContent = label;
+    for (const rowCards of [currentRowCards, compareRowCards]) {
+        const rowElement = document.createElement("div");
+        rowElement.className = "tlgt-annual-panel__summary-row";
 
-        const valueElement = document.createElement("div");
-        valueElement.className = "tlgt-annual-panel__summary-value";
-        valueElement.textContent = value;
+        for (const cardData of rowCards) {
+            const card = document.createElement("div");
+            card.className = "tlgt-annual-panel__summary-card";
+            card.dataset.tone = cardData.tone;
 
-        card.append(labelElement, valueElement);
-        summary.append(card);
+            if (cardData.tone !== "ghost") {
+                const labelElement = document.createElement("div");
+                labelElement.className = "tlgt-annual-panel__summary-label";
+                labelElement.textContent = cardData.label;
+
+                const valueElement = document.createElement("div");
+                valueElement.className = "tlgt-annual-panel__summary-value";
+                valueElement.textContent = cardData.value;
+
+                card.append(labelElement, valueElement);
+            }
+
+            rowElement.append(card);
+        }
+
+        summary.append(rowElement);
     }
 
     chartContainer.append(summary);
