@@ -80,7 +80,8 @@ type AnnualChunk = {
 };
 
 type MonthRangeSelection = {
-    targetYear: number;
+    startYear: number;
+    endYear: number;
     fromMonth: number;
     toMonth: number;
 };
@@ -101,10 +102,14 @@ type AggregatedRow = {
 type AnnualPanelElements = {
     displayButton: HTMLButtonElement;
     exportButton: HTMLButtonElement;
-    yearSelect: HTMLSelectElement;
+    recentButton: HTMLButtonElement;
+    fiscalButton: HTMLButtonElement;
+    startYearSelect: HTMLSelectElement;
+    endYearSelect: HTMLSelectElement;
     fromMonthSelect: HTMLSelectElement;
     toMonthSelect: HTMLSelectElement;
     includeZeroCheckbox: HTMLInputElement;
+    periodPreview: HTMLDivElement;
     status: HTMLDivElement;
     progress: HTMLUListElement;
     result: HTMLDivElement;
@@ -237,6 +242,36 @@ function injectStyle(): void {
 
         #${ANNUAL_PANEL_ID} .tlgt-annual-panel__checkbox {
             accent-color: #0f766e;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__shortcut-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__shortcut {
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 9999px;
+            border: 1px solid #94a3b8;
+            background: #ffffff;
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__preview {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            color: #334155;
+            font-size: 12px;
+            line-height: 1.7;
         }
 
         #${ANNUAL_PANEL_ID} .tlgt-annual-panel__button {
@@ -507,20 +542,50 @@ function mountAnnualCsvPanel(): void {
 
     const description = document.createElement("p");
     description.className = "tlgt-annual-panel__description";
-    description.textContent = "現在の販売先条件をそのまま使い、3か月単位の CSV を順に取得して集計します。表示のみと CSV 出力を分けて実行できます。";
+    description.textContent = "現在の販売先条件をそのまま使い、3か月単位の CSV を順に取得して集計します。年またぎの範囲や前年同時期比較にも対応します。";
 
     const controls = document.createElement("div");
     controls.className = "tlgt-annual-panel__controls";
 
-    const yearLabel = document.createElement("label");
-    yearLabel.className = "tlgt-annual-panel__label";
-    yearLabel.textContent = "開始年";
+    const shortcutLabel = document.createElement("div");
+    shortcutLabel.className = "tlgt-annual-panel__label";
+    shortcutLabel.textContent = "クイック選択";
 
-    const yearSelect = document.createElement("select");
-    yearSelect.className = "tlgt-annual-panel__year";
-    yearSelect.setAttribute("aria-label", "期間集計の開始年");
-    populateYearSelect(yearSelect, form);
-    yearLabel.append(yearSelect);
+    const shortcutGroup = document.createElement("span");
+    shortcutGroup.className = "tlgt-annual-panel__shortcut-group";
+
+    const recentButton = document.createElement("button");
+    recentButton.type = "button";
+    recentButton.className = "tlgt-annual-panel__shortcut";
+    recentButton.textContent = "直近12か月";
+
+    const fiscalButton = document.createElement("button");
+    fiscalButton.type = "button";
+    fiscalButton.className = "tlgt-annual-panel__shortcut";
+    fiscalButton.textContent = "年度(4月〜3月)";
+
+    shortcutGroup.append(recentButton, fiscalButton);
+    shortcutLabel.append(shortcutGroup);
+
+    const startYearLabel = document.createElement("label");
+    startYearLabel.className = "tlgt-annual-panel__label";
+    startYearLabel.textContent = "開始年";
+
+    const startYearSelect = document.createElement("select");
+    startYearSelect.className = "tlgt-annual-panel__year";
+    startYearSelect.setAttribute("aria-label", "期間集計の開始年");
+    populateYearSelect(startYearSelect, form);
+    startYearLabel.append(startYearSelect);
+
+    const endYearLabel = document.createElement("label");
+    endYearLabel.className = "tlgt-annual-panel__label";
+    endYearLabel.textContent = "終了年";
+
+    const endYearSelect = document.createElement("select");
+    endYearSelect.className = "tlgt-annual-panel__year";
+    endYearSelect.setAttribute("aria-label", "期間集計の終了年");
+    populateYearSelect(endYearSelect, form);
+    endYearLabel.append(endYearSelect);
 
     const rangeLabel = document.createElement("label");
     rangeLabel.className = "tlgt-annual-panel__label";
@@ -564,7 +629,10 @@ function mountAnnualCsvPanel(): void {
     const status = document.createElement("div");
     status.id = ANNUAL_STATUS_ID;
     status.dataset.tone = "idle";
-    status.textContent = "準備完了。開始年と対象月を選んで実行してください。年またぎの範囲も指定できます。";
+    status.textContent = "準備完了。開始年・終了年と対象月を選んで実行してください。直近12か月と年度のクイック選択も使えます。";
+
+    const periodPreview = document.createElement("div");
+    periodPreview.className = "tlgt-annual-panel__preview";
 
     const progress = document.createElement("ul");
     progress.id = ANNUAL_PROGRESS_ID;
@@ -581,17 +649,21 @@ function mountAnnualCsvPanel(): void {
 
     result.append(chart, table);
 
-    controls.append(yearLabel, rangeLabel, zeroLabel, displayButton, exportButton);
-    panel.append(title, description, controls, status, progress, result);
+    controls.append(shortcutLabel, startYearLabel, endYearLabel, rangeLabel, zeroLabel, displayButton, exportButton);
+    panel.append(title, description, controls, periodPreview, status, progress, result);
     outputList.insertAdjacentElement("afterend", panel);
 
     const elements: AnnualPanelElements = {
         displayButton,
         exportButton,
-        yearSelect,
+        recentButton,
+        fiscalButton,
+        startYearSelect,
+        endYearSelect,
         fromMonthSelect,
         toMonthSelect,
         includeZeroCheckbox,
+        periodPreview,
         status,
         progress,
         result,
@@ -606,6 +678,24 @@ function mountAnnualCsvPanel(): void {
     exportButton.addEventListener("click", () => {
         void runAnnualAggregation(form, elements, "csv");
     });
+
+    recentButton.addEventListener("click", () => {
+        applyRecentYearPreset(elements);
+        syncPeriodPreview(elements);
+    });
+
+    fiscalButton.addEventListener("click", () => {
+        applyFiscalYearPreset(elements);
+        syncPeriodPreview(elements);
+    });
+
+    for (const selectElement of [startYearSelect, endYearSelect, fromMonthSelect, toMonthSelect]) {
+        selectElement.addEventListener("change", () => {
+            syncPeriodPreview(elements);
+        });
+    }
+
+    syncPeriodPreview(elements);
 }
 
 async function runAnnualAggregation(
@@ -682,8 +772,19 @@ async function runAnnualAggregation(
 }
 
 function validateAnnualCsvInputs(form: HTMLFormElement, rangeSelection: MonthRangeSelection): string | null {
-    if (Number.isNaN(rangeSelection.targetYear)) {
-        return "対象年を選択してください。";
+    if (Number.isNaN(rangeSelection.startYear) || Number.isNaN(rangeSelection.endYear)) {
+        return "開始年と終了年を選択してください。";
+    }
+
+    const startMonthIndex = toMonthIndex(rangeSelection.startYear, rangeSelection.fromMonth);
+    const endMonthIndex = toMonthIndex(rangeSelection.endYear, rangeSelection.toMonth);
+
+    if (endMonthIndex < startMonthIndex) {
+        return "対象期間は開始より前に終了しないようにしてください。";
+    }
+
+    if ((endMonthIndex - startMonthIndex) > 11) {
+        return "対象期間は 12 か月以内で指定してください。";
     }
 
     const categorySelect = getCheckedInputValue(form, "categorySelect");
@@ -703,7 +804,8 @@ function validateAnnualCsvInputs(form: HTMLFormElement, rangeSelection: MonthRan
 
 function getMonthRangeSelection(elements: AnnualPanelElements): MonthRangeSelection {
     return {
-        targetYear: Number.parseInt(elements.yearSelect.value, 10),
+        startYear: Number.parseInt(elements.startYearSelect.value, 10),
+        endYear: Number.parseInt(elements.endYearSelect.value, 10),
         fromMonth: Number.parseInt(elements.fromMonthSelect.value, 10),
         toMonth: Number.parseInt(elements.toMonthSelect.value, 10)
     };
@@ -1027,6 +1129,69 @@ function populateYearSelect(selectElement: HTMLSelectElement, form: HTMLFormElem
     }
 }
 
+function syncPeriodPreview(elements: AnnualPanelElements): void {
+    const rangeSelection = getMonthRangeSelection(elements);
+    const period = buildRangePeriod(rangeSelection);
+
+    elements.periodPreview.innerHTML = [
+        `対象期間: ${formatDateParts(period.collectFrom)} ～ ${formatDateParts(period.collectTo)}`,
+        `比較期間: ${formatDateParts(period.compareFrom)} ～ ${formatDateParts(period.compareTo)}`
+    ].join("<br>");
+}
+
+function applyRecentYearPreset(elements: AnnualPanelElements): void {
+    const today = new Date();
+    const endYear = today.getFullYear();
+    const endMonth = today.getMonth() + 1;
+    const startDate = new Date(endYear, endMonth - 12, 1);
+
+    setRangeSelectionValues(elements, {
+        startYear: startDate.getFullYear(),
+        endYear,
+        fromMonth: startDate.getMonth() + 1,
+        toMonth: endMonth
+    });
+}
+
+function applyFiscalYearPreset(elements: AnnualPanelElements): void {
+    const startYear = Number.parseInt(elements.startYearSelect.value, 10);
+
+    setRangeSelectionValues(elements, {
+        startYear,
+        endYear: startYear + 1,
+        fromMonth: 4,
+        toMonth: 3
+    });
+}
+
+function setRangeSelectionValues(elements: AnnualPanelElements, rangeSelection: MonthRangeSelection): void {
+    ensureYearOption(elements.startYearSelect, rangeSelection.startYear);
+    ensureYearOption(elements.endYearSelect, rangeSelection.endYear);
+    elements.startYearSelect.value = String(rangeSelection.startYear);
+    elements.endYearSelect.value = String(rangeSelection.endYear);
+    elements.fromMonthSelect.value = String(rangeSelection.fromMonth);
+    elements.toMonthSelect.value = String(rangeSelection.toMonth);
+}
+
+function ensureYearOption(selectElement: HTMLSelectElement, year: number): void {
+    const yearValue = String(year);
+
+    if (Array.from(selectElement.options).some((option) => option.value === yearValue)) {
+        return;
+    }
+
+    const option = document.createElement("option");
+    option.value = yearValue;
+    option.textContent = yearValue;
+    selectElement.append(option);
+
+    Array.from(selectElement.options)
+        .sort((leftOption, rightOption) => Number.parseInt(leftOption.value, 10) - Number.parseInt(rightOption.value, 10))
+        .forEach((sortedOption) => {
+            selectElement.append(sortedOption);
+        });
+}
+
 function populateMonthSelect(selectElement: HTMLSelectElement, selectedMonth: number): void {
     for (let month = 1; month <= 12; month += 1) {
         const option = document.createElement("option");
@@ -1108,14 +1273,11 @@ function buildRangePeriod(rangeSelection: MonthRangeSelection): {
     compareFrom: DateParts;
     compareTo: DateParts;
 } {
-    const collectFrom = { year: rangeSelection.targetYear, month: rangeSelection.fromMonth, day: 1 };
-    const collectToYear = rangeSelection.fromMonth <= rangeSelection.toMonth
-        ? rangeSelection.targetYear
-        : rangeSelection.targetYear + 1;
+    const collectFrom = { year: rangeSelection.startYear, month: rangeSelection.fromMonth, day: 1 };
     const collectTo = {
-        year: collectToYear,
+        year: rangeSelection.endYear,
         month: rangeSelection.toMonth,
-        day: getLastDayOfMonth(collectToYear, rangeSelection.toMonth)
+        day: getLastDayOfMonth(rangeSelection.endYear, rangeSelection.toMonth)
     };
     const compareFrom = { year: collectFrom.year - 1, month: collectFrom.month, day: 1 };
     const compareTo = {
@@ -1205,6 +1367,16 @@ function formatInteger(value: number): string {
     return Math.round(value).toLocaleString("en-US");
 }
 
+function formatSignedInteger(value: number): string {
+    const roundedValue = Math.round(value);
+
+    if (roundedValue === 0) {
+        return "0";
+    }
+
+    return `${roundedValue > 0 ? "+" : ""}${roundedValue.toLocaleString("en-US")}`;
+}
+
 function toCsvLine(values: string[]): string {
     return values.map((value) => `"${value.replaceAll('"', '""')}"`).join(",");
 }
@@ -1262,13 +1434,20 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
     summary.className = "tlgt-annual-panel__summary";
 
     const totalRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+    const compareRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
     const totalCount = rows.reduce((sum, row) => sum + row.values["実績件数"], 0);
+    const compareCount = rows.reduce((sum, row) => sum + row.values["実績件数（比較期間）"], 0);
+    const period = buildRangePeriod(rangeSelection);
 
     const cards: Array<[string, string]> = [
         ["対象期間", describeSelection(rangeSelection)],
+        ["前年同時期", `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜${period.compareTo.year}年${pad2(period.compareTo.month)}月`],
         ["表示行数", `${rows.length}行`],
         ["実績件数合計", formatInteger(totalCount)],
-        ["総合計料金合計", formatInteger(totalRevenue)]
+        ["実績件数合計(前年)", formatInteger(compareCount)],
+        ["総合計料金合計", formatInteger(totalRevenue)],
+        ["総合計料金合計(前年)", formatInteger(compareRevenue)],
+        ["総合計料金差額", formatSignedInteger(totalRevenue - compareRevenue)]
     ];
 
     for (const [label, value] of cards) {
@@ -1402,7 +1581,16 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     const table = document.createElement("table");
     const thead = document.createElement("thead");
     const headerRow = document.createElement("tr");
-    const headers = ["販売先名", "取扱個所名", "実績件数", "CXL件数", "催行率", "Wash率", "総合計料金"];
+    const headers = [
+        "販売先名",
+        "取扱個所名",
+        "実績件数",
+        "実績件数(前年)",
+        "催行率",
+        "総合計料金",
+        "総合計料金(前年)",
+        "差額"
+    ];
 
     for (const headerText of headers) {
         const th = document.createElement("th");
@@ -1420,10 +1608,11 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
             row.salesDestinationName,
             row.handlingLocationName || "-",
             formatInteger(row.values["実績件数"]),
-            formatInteger(row.values["CXL件数"]),
+            formatInteger(row.values["実績件数（比較期間）"]),
             formatPercentage(calculateRate(row.values["実績件数"], row.values["実績件数"] + row.values["CXL件数"])),
-            formatPercentage(calculateRate(row.values["目減り室数"], row.values["仮予約時点室数"])),
-            formatInteger(row.values["総合計料金"])
+            formatInteger(row.values["総合計料金"]),
+            formatInteger(row.values["総合計料金（比較期間）"]),
+            formatSignedInteger(row.values["総合計料金"] - row.values["総合計料金（比較期間）"])
         ];
 
         cells.forEach((cellValue, index) => {

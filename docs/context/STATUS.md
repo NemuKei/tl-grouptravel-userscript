@@ -4,7 +4,8 @@ Last Updated: 2026-04-26
 
 ## Current Task Bundle
 
-- 年またぎ月範囲と表示・CSV 分離を実装する
+- 開始年/終了年ベースの期間指定とクイック選択を実装する
+- 前年同時期比較を画面表示へ広げる
 - Tampermonkey 反映後の GUI 確認をやり直す
 
 ## Current State
@@ -24,6 +25,9 @@ Last Updated: 2026-04-26
 - 年またぎ月範囲を開始年基準で扱えるように更新した
 - 画面表示と CSV 出力を別ボタンで実行できるように更新した
 - 総合計料金グラフを円グラフのシェア表示へ更新した
+- 期間指定を開始年/終了年ベースへ変更した
+- 直近 12 か月と年度のクイック選択を追加した
+- 前年同時期の比較値をサマリーと一覧へ表示するように更新した
 
 ## Recent Done
 
@@ -40,11 +44,13 @@ Last Updated: 2026-04-26
 - userscript を更新したブラウザ上で、集計パネルの表示と 2025 年 1 月〜12 月の実行結果を確認した
 - `npm run check` で年またぎ範囲、表示・CSV 分離、円グラフ化を含む最新コードの静的検証が通った
 - 実ブラウザを確認したところ、開いている TL-GroupTravel ページ上の userscript は旧版のままで、新 UI はまだ反映されていなかった
+- `npm run check` で開始年/終了年、クイック選択、前年同時期比較を含む最新コードの静的検証が通った
+- 実ブラウザ上の DOM を確認したところ、まだ開始年/終了年やクイック選択は出ておらず、ページ上の userscript は 1 つ前の版だった
 
 ## Next Re-entry
 
 - 最初に読む正本: `docs/spec_001_sales_destination_annual_csv.md` と `docs/tasks_backlog.md`
-- 次にやること: Tampermonkey へ最新 build を反映し、年またぎ範囲・表示ボタン・CSV ボタン・円グラフの GUI verify をやり直す
+- 次にやること: Tampermonkey へ最新 build を反映し、開始年/終了年、直近12か月、年度、前年同時期比較を含む GUI verify をやり直す
 
 ## Verify / Confirmation State
 
@@ -55,8 +61,11 @@ Last Updated: 2026-04-26
 - 実施済み: 月範囲集計 userscript の GUI 実装
 - 実施済み: 2025 年 1 月〜12 月の集計実行と CSV 出力確認
 - 実施済み: 年またぎ範囲、表示・CSV 分離、円グラフ化を含む `npm run check`
+- 実施済み: 開始年/終了年、クイック選択、前年同時期比較を含む `npm run check`
 - 未実施: Tampermonkey へ最新 build を反映した上での GUI 確認
 - 未実施: 年またぎ範囲の実サイト実行確認
+- 未実施: 直近12か月・年度のクイック選択の実サイト確認
+- 未実施: 前年同時期比較表示の実サイト確認
 
 ## Open Questions / Risks
 
