@@ -17,3 +17,4 @@
 - `D-20260426-011` | 2026-04-26 | 集計結果一覧は総合計料金の降順で固定し、クイック選択には年(1月〜12月) と 年度(6月〜5月) を追加する。円グラフ凡例には当年に加えて前年の数値とシェア率も表示する | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-012` | 2026-04-26 | 直近12か月のクイック選択は当月を含めず、前月を終点にした12か月を既定にする。理由は確定実績ベースで参照したいため | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-013` | 2026-04-26 | 円グラフの詳細値は凡例だけでなく各セグメントの hover tooltip でも確認できるようにする | `docs/spec_001_sales_destination_annual_csv.md` | active
+- `D-20260426-014` | 2026-04-26 | 円グラフ tooltip はネイティブ title ではなく即時表示のカスタム UI とし、販売先名、当年、前年の 3 段構成で表示する | `docs/spec_001_sales_destination_annual_csv.md` | active

@@ -416,6 +416,52 @@ function injectStyle(): void {
             opacity: 0.86;
         }
 
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 3;
+            min-width: 220px;
+            max-width: 260px;
+            padding: 12px 14px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.94);
+            color: #f8fafc;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
+            backdrop-filter: blur(10px);
+            pointer-events: none;
+            opacity: 0;
+            transform: translate(-50%, -100%) scale(0.96);
+            transform-origin: bottom center;
+            transition: opacity 80ms ease, transform 80ms ease;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip[data-visible="true"] {
+            opacity: 1;
+            transform: translate(-50%, -100%) scale(1);
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip-label {
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip-line {
+            margin-top: 8px;
+            color: #cbd5e1;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: nowrap;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip-line strong {
+            color: #f8fafc;
+            font-weight: 700;
+        }
+
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-center {
             position: absolute;
             inset: 50% auto auto 50%;
@@ -1578,7 +1624,11 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     const pieWrap = document.createElement("div");
     pieWrap.className = "tlgt-annual-panel__pie-wrap";
 
-    const pie = buildPieChartSvg(chartEntries, totalRevenue, totalCompareRevenue);
+    const tooltip = document.createElement("div");
+    tooltip.className = "tlgt-annual-panel__pie-tooltip";
+    tooltip.dataset.visible = "false";
+
+    const pie = buildPieChartSvg(chartEntries, totalRevenue, totalCompareRevenue, pieWrap, tooltip);
 
     const pieCenter = document.createElement("div");
     pieCenter.className = "tlgt-annual-panel__pie-center";
@@ -1592,7 +1642,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     totalValue.textContent = formatInteger(totalRevenue);
 
     pieCenter.append(totalLabel, totalValue);
-    pieWrap.append(pie, pieCenter);
+    pieWrap.append(pie, pieCenter, tooltip);
 
     const legend = document.createElement("div");
     legend.className = "tlgt-annual-panel__chart-legend";
@@ -1697,7 +1747,13 @@ function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): voi
     tableContainer.append(title, table);
 }
 
-function buildPieChartSvg(entries: PieChartEntry[], totalRevenue: number, totalCompareRevenue: number): SVGSVGElement {
+function buildPieChartSvg(
+    entries: PieChartEntry[],
+    totalRevenue: number,
+    totalCompareRevenue: number,
+    pieWrap: HTMLDivElement,
+    tooltip: HTMLDivElement
+): SVGSVGElement {
     const namespace = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(namespace, "svg");
     const radius = 48;
@@ -1719,16 +1775,78 @@ function buildPieChartSvg(entries: PieChartEntry[], totalRevenue: number, totalC
         path.setAttribute("stroke", "#ffffff");
         path.setAttribute("stroke-width", "1");
         path.setAttribute("class", "tlgt-annual-panel__pie-segment");
-
-        const title = document.createElementNS(namespace, "title");
-        title.textContent = `${entry.label} | 当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)} | 前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`;
-
-        path.append(title);
+        path.addEventListener("pointerenter", (event) => {
+            showPieTooltip(tooltip, pieWrap, entry, totalRevenue, totalCompareRevenue, event);
+        });
+        path.addEventListener("pointermove", (event) => {
+            showPieTooltip(tooltip, pieWrap, entry, totalRevenue, totalCompareRevenue, event);
+        });
+        path.addEventListener("pointerleave", () => {
+            hidePieTooltip(tooltip);
+        });
         svg.append(path);
         currentAngle += angleSpan;
     }
 
     return svg;
+}
+
+function showPieTooltip(
+    tooltip: HTMLDivElement,
+    pieWrap: HTMLDivElement,
+    entry: PieChartEntry,
+    totalRevenue: number,
+    totalCompareRevenue: number,
+    event: PointerEvent
+): void {
+    tooltip.replaceChildren(
+        createTooltipLine("tlgt-annual-panel__pie-tooltip-label", entry.label),
+        createTooltipLine(
+            "tlgt-annual-panel__pie-tooltip-line",
+            `当年: ${formatShareRate(totalRevenue === 0 ? 0 : entry.value / totalRevenue)} / ${formatInteger(entry.value)}`,
+            true
+        ),
+        createTooltipLine(
+            "tlgt-annual-panel__pie-tooltip-line",
+            `前年: ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`,
+            true
+        )
+    );
+
+    const wrapRect = pieWrap.getBoundingClientRect();
+    tooltip.dataset.visible = "true";
+
+    const tooltipWidth = tooltip.offsetWidth || 220;
+    const tooltipHeight = tooltip.offsetHeight || 90;
+    const halfWidth = tooltipWidth / 2;
+    const left = Math.min(
+        Math.max(event.clientX - wrapRect.left, halfWidth + 8),
+        wrapRect.width - halfWidth - 8
+    );
+    const top = Math.max(event.clientY - wrapRect.top - 14, tooltipHeight + 8);
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+}
+
+function hidePieTooltip(tooltip: HTMLDivElement): void {
+    tooltip.dataset.visible = "false";
+}
+
+function createTooltipLine(className: string, text: string, emphasizePrefix = false): HTMLDivElement {
+    const line = document.createElement("div");
+    line.className = className;
+
+    if (!emphasizePrefix) {
+        line.textContent = text;
+        return line;
+    }
+
+    const [prefix, suffix] = text.split(": ");
+    const strong = document.createElement("strong");
+    strong.textContent = `${prefix}:`;
+    line.append(strong, ` ${suffix ?? ""}`);
+    return line;
 }
 
 function describeDonutSegment(
