@@ -1170,8 +1170,9 @@ function syncPeriodPreview(elements: AnnualPanelElements): void {
 
 function applyRecentYearPreset(elements: AnnualPanelElements): void {
     const today = new Date();
-    const endYear = today.getFullYear();
-    const endMonth = today.getMonth() + 1;
+    const previousMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const endYear = previousMonth.getFullYear();
+    const endMonth = previousMonth.getMonth() + 1;
     const startDate = new Date(endYear, endMonth - 12, 1);
 
     setRangeSelectionValues(elements, {
