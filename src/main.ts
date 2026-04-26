@@ -432,14 +432,14 @@ function injectStyle(): void {
             backdrop-filter: blur(10px);
             pointer-events: none;
             opacity: 0;
-            transform: translate(-50%, -100%) scale(0.96);
-            transform-origin: bottom center;
+            transform: translate(0, -50%) scale(0.96);
+            transform-origin: left center;
             transition: opacity 80ms ease, transform 80ms ease;
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip[data-visible="true"] {
             opacity: 1;
-            transform: translate(-50%, -100%) scale(1);
+            transform: translate(0, -50%) scale(1);
         }
 
         #${ANNUAL_CHART_ID} .tlgt-annual-panel__pie-tooltip-label {
@@ -1818,12 +1818,14 @@ function showPieTooltip(
 
     const tooltipWidth = tooltip.offsetWidth || 220;
     const tooltipHeight = tooltip.offsetHeight || 90;
-    const halfWidth = tooltipWidth / 2;
     const left = Math.min(
-        Math.max(event.clientX - wrapRect.left, halfWidth + 8),
-        wrapRect.width - halfWidth - 8
+        Math.max(event.clientX - wrapRect.left + 18, 8),
+        wrapRect.width - tooltipWidth - 8
     );
-    const top = Math.max(event.clientY - wrapRect.top - 14, tooltipHeight + 8);
+    const top = Math.min(
+        Math.max(event.clientY - wrapRect.top, (tooltipHeight / 2) + 8),
+        wrapRect.height - (tooltipHeight / 2) - 8
+    );
 
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
