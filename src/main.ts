@@ -7,6 +7,9 @@ const STYLE_ID = "tl-grouptravel-userscript-style";
 const ANNUAL_PANEL_ID = "tl-grouptravel-annual-csv-panel";
 const ANNUAL_STATUS_ID = "tl-grouptravel-annual-csv-status";
 const ANNUAL_PROGRESS_ID = "tl-grouptravel-annual-csv-progress";
+const ANNUAL_RESULT_ID = "tl-grouptravel-annual-csv-result";
+const ANNUAL_CHART_ID = "tl-grouptravel-annual-csv-chart";
+const ANNUAL_TABLE_ID = "tl-grouptravel-annual-csv-table";
 const STATS_FORM_ID = "gscsc4000form";
 const CSV_ACTION_PATH = "/accomodation/Gscsc4010CsvOutAction.do";
 
@@ -75,6 +78,12 @@ type AnnualChunk = {
     compareTo: DateParts;
 };
 
+type MonthRangeSelection = {
+    targetYear: number;
+    fromMonth: number;
+    toMonth: number;
+};
+
 type ParsedCsv = {
     conditionLine: string;
     rows: Array<Record<CsvHeader, string>>;
@@ -89,9 +98,14 @@ type AggregatedRow = {
 type AnnualPanelElements = {
     button: HTMLButtonElement;
     yearSelect: HTMLSelectElement;
+    fromMonthSelect: HTMLSelectElement;
+    toMonthSelect: HTMLSelectElement;
     includeZeroCheckbox: HTMLInputElement;
     status: HTMLDivElement;
     progress: HTMLUListElement;
+    result: HTMLDivElement;
+    chart: HTMLDivElement;
+    table: HTMLDivElement;
 };
 
 initialize();
@@ -188,6 +202,7 @@ function injectStyle(): void {
         }
 
         #${ANNUAL_PANEL_ID} .tlgt-annual-panel__year,
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__month,
         #${ANNUAL_PANEL_ID} .tlgt-annual-panel__button {
             min-height: 40px;
             border-radius: 9999px;
@@ -195,11 +210,25 @@ function injectStyle(): void {
             font-size: 13px;
         }
 
-        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__year {
-            min-width: 110px;
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__year,
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__month {
             padding: 0 14px;
             background: #ffffff;
             color: #0f172a;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__year {
+            min-width: 110px;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__month {
+            min-width: 88px;
+        }
+
+        #${ANNUAL_PANEL_ID} .tlgt-annual-panel__range {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         #${ANNUAL_PANEL_ID} .tlgt-annual-panel__checkbox {
@@ -260,6 +289,114 @@ function injectStyle(): void {
         #${ANNUAL_PROGRESS_ID} li[data-status="error"] {
             color: #991b1b;
         }
+
+        #${ANNUAL_RESULT_ID} {
+            margin-top: 16px;
+            display: none;
+            gap: 16px;
+        }
+
+        #${ANNUAL_RESULT_ID}[data-visible="true"] {
+            display: grid;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card {
+            padding: 14px;
+            border-radius: 12px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-label {
+            color: #475569;
+            font-size: 12px;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-value {
+            margin-top: 6px;
+            color: #0f172a;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        #${ANNUAL_CHART_ID} {
+            display: grid;
+            gap: 10px;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-title,
+        #${ANNUAL_TABLE_ID} .tlgt-annual-panel__table-title {
+            margin: 0;
+            color: #0f172a;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-row {
+            display: grid;
+            grid-template-columns: minmax(140px, 220px) 1fr 90px;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-label,
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-value {
+            font-size: 12px;
+            color: #334155;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-bar-track {
+            height: 14px;
+            border-radius: 9999px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+
+        #${ANNUAL_CHART_ID} .tlgt-annual-panel__chart-bar-fill {
+            height: 100%;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #0f766e 0%, #0ea5e9 100%);
+        }
+
+        #${ANNUAL_TABLE_ID} {
+            overflow-x: auto;
+        }
+
+        #${ANNUAL_TABLE_ID} table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+        }
+
+        #${ANNUAL_TABLE_ID} th,
+        #${ANNUAL_TABLE_ID} td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        #${ANNUAL_TABLE_ID} th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        #${ANNUAL_TABLE_ID} td[data-align="right"] {
+            text-align: right;
+        }
     `;
 
     document.head.append(style);
@@ -311,6 +448,26 @@ function mountAnnualCsvPanel(): void {
     populateYearSelect(yearSelect, form);
     yearLabel.append(yearSelect);
 
+    const rangeLabel = document.createElement("label");
+    rangeLabel.className = "tlgt-annual-panel__label";
+    rangeLabel.textContent = "対象月";
+
+    const rangeWrap = document.createElement("span");
+    rangeWrap.className = "tlgt-annual-panel__range";
+
+    const fromMonthSelect = document.createElement("select");
+    fromMonthSelect.className = "tlgt-annual-panel__month";
+    fromMonthSelect.setAttribute("aria-label", "対象開始月");
+
+    const toMonthSelect = document.createElement("select");
+    toMonthSelect.className = "tlgt-annual-panel__month";
+    toMonthSelect.setAttribute("aria-label", "対象終了月");
+
+    populateMonthSelect(fromMonthSelect, 1);
+    populateMonthSelect(toMonthSelect, 12);
+    rangeWrap.append(fromMonthSelect, document.createTextNode("〜"), toMonthSelect);
+    rangeLabel.append(rangeWrap);
+
     const zeroLabel = document.createElement("label");
     zeroLabel.className = "tlgt-annual-panel__label";
 
@@ -333,16 +490,33 @@ function mountAnnualCsvPanel(): void {
     const progress = document.createElement("ul");
     progress.id = ANNUAL_PROGRESS_ID;
 
-    controls.append(yearLabel, zeroLabel, runButton);
-    panel.append(title, description, controls, status, progress);
+    const result = document.createElement("div");
+    result.id = ANNUAL_RESULT_ID;
+    result.dataset.visible = "false";
+
+    const chart = document.createElement("div");
+    chart.id = ANNUAL_CHART_ID;
+
+    const table = document.createElement("div");
+    table.id = ANNUAL_TABLE_ID;
+
+    result.append(chart, table);
+
+    controls.append(yearLabel, rangeLabel, zeroLabel, runButton);
+    panel.append(title, description, controls, status, progress, result);
     outputList.insertAdjacentElement("afterend", panel);
 
     const elements: AnnualPanelElements = {
         button: runButton,
         yearSelect,
+        fromMonthSelect,
+        toMonthSelect,
         includeZeroCheckbox,
         status,
-        progress
+        progress,
+        result,
+        chart,
+        table
     };
 
     runButton.addEventListener("click", () => {
@@ -351,21 +525,22 @@ function mountAnnualCsvPanel(): void {
 }
 
 async function runAnnualCsvExport(form: HTMLFormElement, elements: AnnualPanelElements): Promise<void> {
-    const validationMessage = validateAnnualCsvInputs(form, elements.yearSelect.value);
+    const rangeSelection = getMonthRangeSelection(elements);
+    const validationMessage = validateAnnualCsvInputs(form, rangeSelection);
 
     if (validationMessage !== null) {
         setPanelStatus(elements.status, validationMessage, "error");
         clearProgress(elements.progress);
+        clearRenderedResult(elements);
         return;
     }
 
-    const targetYear = Number.parseInt(elements.yearSelect.value, 10);
-    const chunks = buildAnnualChunks(targetYear);
+    const chunks = buildAnnualChunks(rangeSelection);
     const parsedCsvList: ParsedCsv[] = [];
 
     elements.button.disabled = true;
     clearProgress(elements.progress);
-    setPanelStatus(elements.status, `${targetYear}年分の CSV 取得を開始します。`, "progress");
+    setPanelStatus(elements.status, `${describeSelection(rangeSelection)} の CSV 取得を開始します。`, "progress");
 
     try {
         for (const chunk of chunks) {
@@ -383,25 +558,31 @@ async function runAnnualCsvExport(form: HTMLFormElement, elements: AnnualPanelEl
 
         const aggregatedRows = aggregateCsvRows(parsedCsvList, elements.includeZeroCheckbox.checked);
         const sortedRows = sortAggregatedRows(aggregatedRows, form);
-        const csvText = buildAnnualCsvText(targetYear, form, sortedRows);
+        const csvText = buildAnnualCsvText(rangeSelection, form, sortedRows);
 
-        downloadCsvFile(`統計データ_年間_${targetYear}.csv`, csvText);
+        renderAggregatedResult(elements, rangeSelection, sortedRows);
+        downloadCsvFile(buildCsvFileName(rangeSelection), csvText);
 
         setPanelStatus(
             elements.status,
-            `${targetYear}年分の年間集計 CSV を出力しました。${sortedRows.length} 行を含みます。`,
+            `${describeSelection(rangeSelection)} の集計を表示し、CSV を出力しました。${sortedRows.length} 行を含みます。`,
             "success"
         );
     } catch (error) {
         setPanelStatus(elements.status, toErrorMessage(error), "error");
+        clearRenderedResult(elements);
     } finally {
         elements.button.disabled = false;
     }
 }
 
-function validateAnnualCsvInputs(form: HTMLFormElement, yearValue: string): string | null {
-    if (yearValue.trim() === "") {
+function validateAnnualCsvInputs(form: HTMLFormElement, rangeSelection: MonthRangeSelection): string | null {
+    if (Number.isNaN(rangeSelection.targetYear)) {
         return "対象年を選択してください。";
+    }
+
+    if (rangeSelection.fromMonth > rangeSelection.toMonth) {
+        return "対象月は開始月が終了月を超えないようにしてください。";
     }
 
     const categorySelect = getCheckedInputValue(form, "categorySelect");
@@ -417,6 +598,14 @@ function validateAnnualCsvInputs(form: HTMLFormElement, yearValue: string): stri
     }
 
     return null;
+}
+
+function getMonthRangeSelection(elements: AnnualPanelElements): MonthRangeSelection {
+    return {
+        targetYear: Number.parseInt(elements.yearSelect.value, 10),
+        fromMonth: Number.parseInt(elements.fromMonthSelect.value, 10),
+        toMonth: Number.parseInt(elements.toMonthSelect.value, 10)
+    };
 }
 
 function fetchChunkCsv(form: HTMLFormElement, chunk: AnnualChunk): Promise<string> {
@@ -628,11 +817,10 @@ function getSortValue(row: AggregatedRow, sortMode: string | null): number {
     return row.values["総合計料金"];
 }
 
-function buildAnnualCsvText(targetYear: number, form: HTMLFormElement, rows: AggregatedRow[]): string {
-    const compareYear = targetYear - 1;
+function buildAnnualCsvText(rangeSelection: MonthRangeSelection, form: HTMLFormElement, rows: AggregatedRow[]): string {
     const lines: string[] = [];
 
-    lines.push(toCsvLine([buildConditionLine(targetYear, compareYear, form)]));
+    lines.push(toCsvLine([buildConditionLine(rangeSelection, form)]));
     lines.push(toCsvLine([...CSV_HEADER]));
 
     for (const row of rows) {
@@ -667,8 +855,13 @@ function buildAnnualCsvText(targetYear: number, form: HTMLFormElement, rows: Agg
     return `\uFEFF${lines.join("\r\n")}`;
 }
 
-function buildConditionLine(targetYear: number, compareYear: number, form: HTMLFormElement): string {
-    return `抽出条件(集計期間：${targetYear}/01/01 ～ ${targetYear}/12/31、比較期間：${compareYear}/01/01 ～ ${compareYear}/12/31、集計単位：取扱個所、販売先：${summarizeSelection(form, "salesDestSelectCd", "salesDestSelectAll")}、団体種別：${summarizeSelection(form, "itemMstListCd", "itemMstListAll")}、並び順：${describeSortMode(form)})`;
+function buildConditionLine(rangeSelection: MonthRangeSelection, form: HTMLFormElement): string {
+    const targetStart = `${rangeSelection.targetYear}/${pad2(rangeSelection.fromMonth)}/01`;
+    const targetEnd = `${rangeSelection.targetYear}/${pad2(rangeSelection.toMonth)}/${pad2(getLastDayOfMonth(rangeSelection.targetYear, rangeSelection.toMonth))}`;
+    const compareStart = `${rangeSelection.targetYear - 1}/${pad2(rangeSelection.fromMonth)}/01`;
+    const compareEnd = `${rangeSelection.targetYear - 1}/${pad2(rangeSelection.toMonth)}/${pad2(getLastDayOfMonth(rangeSelection.targetYear - 1, rangeSelection.toMonth))}`;
+
+    return `抽出条件(集計期間：${targetStart} ～ ${targetEnd}、比較期間：${compareStart} ～ ${compareEnd}、集計単位：取扱個所、販売先：${summarizeSelection(form, "salesDestSelectCd", "salesDestSelectAll")}、団体種別：${summarizeSelection(form, "itemMstListCd", "itemMstListAll")}、並び順：${describeSortMode(form)})`;
 }
 
 function summarizeSelection(form: HTMLFormElement, itemName: string, allName: string): string {
@@ -732,23 +925,49 @@ function populateYearSelect(selectElement: HTMLSelectElement, form: HTMLFormElem
     }
 }
 
-function buildAnnualChunks(targetYear: number): AnnualChunk[] {
-    return [0, 1, 2, 3].map((quarterIndex) => {
-        const startMonth = quarterIndex * 3 + 1;
-        const endMonth = startMonth + 2;
+function populateMonthSelect(selectElement: HTMLSelectElement, selectedMonth: number): void {
+    for (let month = 1; month <= 12; month += 1) {
+        const option = document.createElement("option");
+        option.value = String(month);
+        option.textContent = `${pad2(month)}月`;
+        option.selected = month === selectedMonth;
+        selectElement.append(option);
+    }
+}
 
-        return {
-            index: quarterIndex + 1,
-            collectFrom: { year: targetYear, month: startMonth, day: 1 },
-            collectTo: { year: targetYear, month: endMonth, day: getLastDayOfMonth(targetYear, endMonth) },
-            compareFrom: { year: targetYear - 1, month: startMonth, day: 1 },
-            compareTo: { year: targetYear - 1, month: endMonth, day: getLastDayOfMonth(targetYear - 1, endMonth) }
-        };
-    });
+function buildAnnualChunks(rangeSelection: MonthRangeSelection): AnnualChunk[] {
+    const chunks: AnnualChunk[] = [];
+    let chunkIndex = 1;
+    let currentMonth = rangeSelection.fromMonth;
+
+    while (currentMonth <= rangeSelection.toMonth) {
+        const endMonth = Math.min(currentMonth + 2, rangeSelection.toMonth);
+
+        chunks.push({
+            index: chunkIndex,
+            collectFrom: { year: rangeSelection.targetYear, month: currentMonth, day: 1 },
+            collectTo: { year: rangeSelection.targetYear, month: endMonth, day: getLastDayOfMonth(rangeSelection.targetYear, endMonth) },
+            compareFrom: { year: rangeSelection.targetYear - 1, month: currentMonth, day: 1 },
+            compareTo: { year: rangeSelection.targetYear - 1, month: endMonth, day: getLastDayOfMonth(rangeSelection.targetYear - 1, endMonth) }
+        });
+
+        currentMonth = endMonth + 1;
+        chunkIndex += 1;
+    }
+
+    return chunks;
 }
 
 function describeChunk(chunk: AnnualChunk): string {
     return `${chunk.collectFrom.year}/${pad2(chunk.collectFrom.month)}/${pad2(chunk.collectFrom.day)}～${chunk.collectTo.year}/${pad2(chunk.collectTo.month)}/${pad2(chunk.collectTo.day)}`;
+}
+
+function describeSelection(rangeSelection: MonthRangeSelection): string {
+    return `${rangeSelection.targetYear}年${pad2(rangeSelection.fromMonth)}月〜${pad2(rangeSelection.toMonth)}月`;
+}
+
+function buildCsvFileName(rangeSelection: MonthRangeSelection): string {
+    return `統計データ_${rangeSelection.targetYear}_${pad2(rangeSelection.fromMonth)}-${pad2(rangeSelection.toMonth)}.csv`;
 }
 
 function getLastDayOfMonth(year: number, month: number): number {
@@ -843,4 +1062,148 @@ function toErrorMessage(error: unknown): string {
     }
 
     return "年間集計 CSV の作成に失敗しました。";
+}
+
+function clearRenderedResult(elements: AnnualPanelElements): void {
+    elements.result.dataset.visible = "false";
+    elements.chart.replaceChildren();
+    elements.table.replaceChildren();
+}
+
+function renderAggregatedResult(
+    elements: AnnualPanelElements,
+    rangeSelection: MonthRangeSelection,
+    rows: AggregatedRow[]
+): void {
+    elements.result.dataset.visible = "true";
+    elements.chart.replaceChildren();
+    elements.table.replaceChildren();
+
+    renderSummary(elements.chart, rangeSelection, rows);
+    renderChart(elements.chart, rows);
+    renderTable(elements.table, rows);
+}
+
+function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRangeSelection, rows: AggregatedRow[]): void {
+    const summary = document.createElement("div");
+    summary.className = "tlgt-annual-panel__summary";
+
+    const totalRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
+    const totalCount = rows.reduce((sum, row) => sum + row.values["実績件数"], 0);
+
+    const cards: Array<[string, string]> = [
+        ["対象期間", describeSelection(rangeSelection)],
+        ["表示行数", `${rows.length}行`],
+        ["実績件数合計", formatInteger(totalCount)],
+        ["総合計料金合計", formatInteger(totalRevenue)]
+    ];
+
+    for (const [label, value] of cards) {
+        const card = document.createElement("div");
+        card.className = "tlgt-annual-panel__summary-card";
+
+        const labelElement = document.createElement("div");
+        labelElement.className = "tlgt-annual-panel__summary-label";
+        labelElement.textContent = label;
+
+        const valueElement = document.createElement("div");
+        valueElement.className = "tlgt-annual-panel__summary-value";
+        valueElement.textContent = value;
+
+        card.append(labelElement, valueElement);
+        summary.append(card);
+    }
+
+    chartContainer.append(summary);
+}
+
+function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): void {
+    const title = document.createElement("h4");
+    title.className = "tlgt-annual-panel__chart-title";
+    title.textContent = "総合計料金 上位 8 件";
+    chartContainer.append(title);
+
+    const topRows = rows.slice(0, 8);
+    const maxValue = Math.max(...topRows.map((row) => row.values["総合計料金"]), 0);
+
+    if (topRows.length === 0 || maxValue === 0) {
+        const empty = document.createElement("div");
+        empty.textContent = "表示できる集計結果がありません。";
+        chartContainer.append(empty);
+        return;
+    }
+
+    for (const row of topRows) {
+        const chartRow = document.createElement("div");
+        chartRow.className = "tlgt-annual-panel__chart-row";
+
+        const label = document.createElement("div");
+        label.className = "tlgt-annual-panel__chart-label";
+        label.textContent = `${row.salesDestinationName} / ${row.handlingLocationName || "-"}`;
+
+        const track = document.createElement("div");
+        track.className = "tlgt-annual-panel__chart-bar-track";
+
+        const fill = document.createElement("div");
+        fill.className = "tlgt-annual-panel__chart-bar-fill";
+        fill.style.width = `${(row.values["総合計料金"] / maxValue) * 100}%`;
+        track.append(fill);
+
+        const value = document.createElement("div");
+        value.className = "tlgt-annual-panel__chart-value";
+        value.textContent = formatInteger(row.values["総合計料金"]);
+
+        chartRow.append(label, track, value);
+        chartContainer.append(chartRow);
+    }
+}
+
+function renderTable(tableContainer: HTMLDivElement, rows: AggregatedRow[]): void {
+    const title = document.createElement("h4");
+    title.className = "tlgt-annual-panel__table-title";
+    title.textContent = "集計結果一覧";
+
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    const headers = ["販売先名", "取扱個所名", "実績件数", "CXL件数", "催行率", "Wash率", "総合計料金"];
+
+    for (const headerText of headers) {
+        const th = document.createElement("th");
+        th.textContent = headerText;
+        headerRow.append(th);
+    }
+
+    thead.append(headerRow);
+
+    const tbody = document.createElement("tbody");
+
+    for (const row of rows) {
+        const tr = document.createElement("tr");
+        const cells = [
+            row.salesDestinationName,
+            row.handlingLocationName || "-",
+            formatInteger(row.values["実績件数"]),
+            formatInteger(row.values["CXL件数"]),
+            formatPercentage(calculateRate(row.values["実績件数"], row.values["実績件数"] + row.values["CXL件数"])),
+            formatPercentage(calculateRate(row.values["目減り室数"], row.values["仮予約時点室数"])),
+            formatInteger(row.values["総合計料金"])
+        ];
+
+        cells.forEach((cellValue, index) => {
+            const td = document.createElement("td");
+            td.textContent = cellValue;
+
+            if (index >= 2) {
+                td.dataset.align = "right";
+            }
+
+            tr.append(td);
+        });
+
+        tbody.append(tr);
+    }
+
+    table.append(thead, tbody);
+    tableContainer.append(title, table);
 }
