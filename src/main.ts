@@ -1818,14 +1818,18 @@ function showPieTooltip(
 
     const tooltipWidth = tooltip.offsetWidth || 220;
     const tooltipHeight = tooltip.offsetHeight || 90;
-    const left = Math.min(
-        Math.max(event.clientX - wrapRect.left + 18, 8),
-        wrapRect.width - tooltipWidth - 8
+    const desiredClientLeft = event.clientX + 18;
+    const desiredClientTop = event.clientY - (tooltipHeight / 2);
+    const clientLeft = Math.min(
+        Math.max(desiredClientLeft, 8),
+        window.innerWidth - tooltipWidth - 8
     );
-    const top = Math.min(
-        Math.max(event.clientY - wrapRect.top, (tooltipHeight / 2) + 8),
-        wrapRect.height - (tooltipHeight / 2) - 8
+    const clientTop = Math.min(
+        Math.max(desiredClientTop, 8),
+        window.innerHeight - tooltipHeight - 8
     );
+    const left = clientLeft - wrapRect.left;
+    const top = clientTop - wrapRect.top + (tooltipHeight / 2);
 
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
