@@ -20,3 +20,4 @@
 - `D-20260426-014` | 2026-04-26 | 円グラフ tooltip はネイティブ title ではなく即時表示のカスタム UI とし、販売先名、当年、前年の 3 段構成で表示する | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-015` | 2026-04-26 | 円グラフ tooltip はカーソル右側を優先し、必要に応じてグラフエリア外まで表示できるようにする | `docs/spec_001_sales_destination_annual_csv.md` | active
 - `D-20260426-016` | 2026-04-26 | 催行率、Wash率、室単価は分割 CSV の表示値をそのまま使わず、合算後の元数値から再計算する | `docs/spec_001_sales_destination_annual_csv.md` | active
+- `D-20260429-017` | 2026-04-29 | 前年同時期の比較母集団ずれを避けるため、画面表示では販売先条件だけを `すべて` に戻した追加取得で全体分母を算出し、サマリー・凡例・tooltip のシェア率を全体基準へそろえる。CSV 出力は従来どおり選択条件内の集計結果だけを出力する | `docs/spec_001_sales_destination_annual_csv.md` | active

@@ -101,6 +101,19 @@ type AggregatedRow = {
     values: Record<SumColumn, number>;
 };
 
+type AnnualDisplayTotals = {
+    selectedValues: Record<SumColumn, number>;
+    overallValues: Record<SumColumn, number>;
+};
+
+type SummaryCardTone = "current" | "compare" | "ghost";
+
+type SummaryCardData = {
+    label: string;
+    value: string;
+    tone: SummaryCardTone;
+};
+
 type PieChartEntry = {
     label: string;
     value: number;
@@ -856,6 +869,7 @@ async function runAnnualAggregation(
 
     const chunks = buildAnnualChunks(rangeSelection);
     const parsedCsvList: ParsedCsv[] = [];
+    const overallParsedCsvList: ParsedCsv[] = [];
 
     elements.displayButton.disabled = true;
     elements.exportButton.disabled = true;
@@ -870,12 +884,19 @@ async function runAnnualAggregation(
         for (const chunk of chunks) {
             const chunkItem = appendProgressItem(elements.progress, describeChunk(chunk));
             chunkItem.dataset.status = "progress";
-            chunkItem.textContent = `${describeChunk(chunk)} を取得中...`;
+            chunkItem.textContent = `${describeChunk(chunk)} の選択条件内データを取得中...`;
 
             const csvText = await fetchChunkCsv(form, chunk);
             const parsedCsv = parseCsv(csvText);
 
             parsedCsvList.push(parsedCsv);
+
+            if (mode === "display") {
+                chunkItem.textContent = `${describeChunk(chunk)} の全体基準データを取得中...`;
+                const overallCsvText = await fetchChunkCsv(form, chunk, { useAllSalesDestinations: true });
+                overallParsedCsvList.push(parseCsv(overallCsvText));
+            }
+
             chunkItem.dataset.status = "success";
             chunkItem.textContent = `${describeChunk(chunk)} を取得しました`;
         }
@@ -884,7 +905,12 @@ async function runAnnualAggregation(
         const sortedRows = sortAggregatedRows(aggregatedRows, form);
 
         if (mode === "display") {
-            renderAggregatedResult(elements, rangeSelection, sortedRows);
+            const overallAggregatedRows = aggregateCsvRows(overallParsedCsvList, true);
+
+            renderAggregatedResult(elements, rangeSelection, sortedRows, {
+                selectedValues: sumRowValues(sortedRows),
+                overallValues: sumRowValues(overallAggregatedRows)
+            });
             setPanelStatus(
                 elements.status,
                 `${describeSelection(rangeSelection)} の集計を表示しました。${sortedRows.length} 行を含みます。`,
@@ -950,8 +976,12 @@ function getMonthRangeSelection(elements: AnnualPanelElements): MonthRangeSelect
     };
 }
 
-function fetchChunkCsv(form: HTMLFormElement, chunk: AnnualChunk): Promise<string> {
-    const params = serializeStatsForm(form, chunk);
+function fetchChunkCsv(
+    form: HTMLFormElement,
+    chunk: AnnualChunk,
+    options: { useAllSalesDestinations?: boolean } = {}
+): Promise<string> {
+    const params = serializeStatsForm(form, chunk, options);
 
     return fetch(CSV_ACTION_PATH, {
         method: "POST",
@@ -977,7 +1007,11 @@ function fetchChunkCsv(form: HTMLFormElement, chunk: AnnualChunk): Promise<strin
     });
 }
 
-function serializeStatsForm(form: HTMLFormElement, chunk: AnnualChunk): URLSearchParams {
+function serializeStatsForm(
+    form: HTMLFormElement,
+    chunk: AnnualChunk,
+    options: { useAllSalesDestinations?: boolean } = {}
+): URLSearchParams {
     const params = new URLSearchParams();
 
     for (const element of Array.from(form.elements)) {
@@ -1013,7 +1047,16 @@ function serializeStatsForm(form: HTMLFormElement, chunk: AnnualChunk): URLSearc
     setChunkDateParams(params, "compareDateFrom", chunk.compareFrom);
     setChunkDateParams(params, "compareDateTo", chunk.compareTo);
 
+    if (options.useAllSalesDestinations === true) {
+        applyAllSalesDestinationParams(params);
+    }
+
     return params;
+}
+
+function applyAllSalesDestinationParams(params: URLSearchParams): void {
+    params.delete("salesDestSelectCd");
+    params.set("salesDestSelectAll", "on");
 }
 
 function setChunkDateParams(params: URLSearchParams, prefix: string, dateParts: DateParts): void {
@@ -1634,31 +1677,40 @@ function clearRenderedResult(elements: AnnualPanelElements): void {
 function renderAggregatedResult(
     elements: AnnualPanelElements,
     rangeSelection: MonthRangeSelection,
-    rows: AggregatedRow[]
+    rows: AggregatedRow[],
+    displayTotals: AnnualDisplayTotals
 ): void {
     elements.result.dataset.visible = "true";
     elements.chart.replaceChildren();
     elements.table.replaceChildren();
 
-    renderSummary(elements.chart, rangeSelection, rows);
-    renderChart(elements.chart, rows);
+    renderSummary(elements.chart, rangeSelection, rows, displayTotals);
+    renderChart(elements.chart, rows, displayTotals.overallValues);
     renderTable(elements.table, rows);
 }
 
-function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRangeSelection, rows: AggregatedRow[]): void {
+function renderSummary(
+    chartContainer: HTMLDivElement,
+    rangeSelection: MonthRangeSelection,
+    rows: AggregatedRow[],
+    displayTotals: AnnualDisplayTotals
+): void {
     const summary = document.createElement("div");
     summary.className = "tlgt-annual-panel__summary";
 
-    const totalValues = sumRowValues(rows);
-    const totalRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
-    const compareRevenue = rows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
-    const totalCount = rows.reduce((sum, row) => sum + row.values["実績件数"], 0);
-    const compareCount = rows.reduce((sum, row) => sum + row.values["実績件数（比較期間）"], 0);
-    const currentMetrics = buildPieChartMetricSnapshot(totalValues);
-    const compareMetrics = buildPieChartMetricSnapshot(totalValues, true);
+    const selectedValues = displayTotals.selectedValues;
+    const overallValues = displayTotals.overallValues;
+    const totalRevenue = selectedValues["総合計料金"];
+    const compareRevenue = selectedValues["総合計料金（比較期間）"];
+    const totalCount = selectedValues["実績件数"];
+    const compareCount = selectedValues["実績件数（比較期間）"];
+    const currentMetrics = buildPieChartMetricSnapshot(selectedValues);
+    const compareMetrics = buildPieChartMetricSnapshot(selectedValues, true);
+    const overallCurrentMetrics = buildPieChartMetricSnapshot(overallValues);
+    const overallCompareMetrics = buildPieChartMetricSnapshot(overallValues, true);
     const period = buildRangePeriod(rangeSelection);
 
-    const currentRowCards = [
+    const currentRowCards: SummaryCardData[] = [
         { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
         { label: "表示行数", value: `${rows.length}行`, tone: "current" },
         { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
@@ -1667,20 +1719,31 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
         { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
         { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
         { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" }
-    ] as const;
+    ];
 
-    const compareRowCards = [
-        { label: "前年同時期", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
-        { label: "", value: "", tone: "ghost" },
-        { label: "実績件数合計(前年)", value: formatInteger(compareCount), tone: "compare" },
-        { label: "実績室数合計(前年)", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
-        { label: "Wash率(前年)", value: formatWashMetric(compareMetrics), tone: "compare" },
-        { label: "室単価(前年)", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
-        { label: "総合計料金合計(前年)", value: formatInteger(compareRevenue), tone: "compare" },
-        { label: "", value: "", tone: "ghost" }
-    ] as const;
+    const compareRowCards: SummaryCardData[] = [
+        { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+        { label: "実績件数合計(前年・選択条件内)", value: formatInteger(compareCount), tone: "compare" },
+        { label: "実績室数合計(前年・選択条件内)", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
+        { label: "総合計料金合計(前年・選択条件内)", value: formatInteger(compareRevenue), tone: "compare" },
+        { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+        { label: "実績件数合計(前年・全体基準)", value: formatInteger(overallValues["実績件数（比較期間）"]), tone: "compare" },
+        { label: "実績室数合計(前年・全体基準)", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "compare" },
+        { label: "総合計料金合計(前年・全体基準)", value: formatInteger(overallValues["総合計料金（比較期間）"]), tone: "compare" }
+    ];
 
-    for (const rowCards of [currentRowCards, compareRowCards]) {
+    const overallRowCards: SummaryCardData[] = [
+        { label: "対象期間(全体基準)", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "compare" },
+        { label: "実績件数合計(全体基準)", value: formatInteger(overallValues["実績件数"]), tone: "compare" },
+        { label: "実績室数合計(全体基準)", value: formatInteger(overallCurrentMetrics.actualRoomCount), tone: "compare" },
+        { label: "総合計料金合計(全体基準)", value: formatInteger(overallValues["総合計料金"]), tone: "compare" },
+        { label: "Wash率(全体基準)", value: formatWashMetric(overallCurrentMetrics), tone: "compare" },
+        { label: "Wash率(前年・全体基準)", value: formatWashMetric(overallCompareMetrics), tone: "compare" },
+        { label: "室単価(全体基準)", value: formatInteger(overallCurrentMetrics.roomUnitPrice), tone: "compare" },
+        { label: "室単価(前年・全体基準)", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "compare" }
+    ];
+
+    for (const rowCards of [currentRowCards, compareRowCards, overallRowCards]) {
         const rowElement = document.createElement("div");
         rowElement.className = "tlgt-annual-panel__summary-row";
 
@@ -1710,15 +1773,19 @@ function renderSummary(chartContainer: HTMLDivElement, rangeSelection: MonthRang
     chartContainer.append(summary);
 }
 
-function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): void {
+function renderChart(
+    chartContainer: HTMLDivElement,
+    rows: AggregatedRow[],
+    overallValues: Record<SumColumn, number>
+): void {
     const title = document.createElement("h4");
     title.className = "tlgt-annual-panel__chart-title";
     title.textContent = "総合計料金 シェア";
     chartContainer.append(title);
 
     const rankedRows = sortRowsByRevenueDesc(rows).filter((row) => row.values["総合計料金"] > 0);
-    const totalRevenue = rankedRows.reduce((sum, row) => sum + row.values["総合計料金"], 0);
-    const totalCompareRevenue = rankedRows.reduce((sum, row) => sum + row.values["総合計料金（比較期間）"], 0);
+    const totalRevenue = overallValues["総合計料金"];
+    const totalCompareRevenue = overallValues["総合計料金（比較期間）"];
 
     if (rankedRows.length === 0 || totalRevenue === 0) {
         const empty = document.createElement("div");
@@ -1769,7 +1836,7 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
     const totalLabel = document.createElement("div");
     totalLabel.className = "tlgt-annual-panel__pie-total-label";
-    totalLabel.textContent = "総合計料金合計";
+    totalLabel.textContent = "総合計料金合計(全体基準)";
 
     const totalValue = document.createElement("div");
     totalValue.className = "tlgt-annual-panel__pie-total-value";
@@ -1801,15 +1868,15 @@ function renderChart(chartContainer: HTMLDivElement, rows: AggregatedRow[]): voi
 
         const currentMeta = document.createElement("div");
         currentMeta.className = "tlgt-annual-panel__chart-meta";
-        currentMeta.textContent = `当年 ${formatShareRate(entry.value / totalRevenue)} / ${formatInteger(entry.value)} / 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.metrics)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`;
+        currentMeta.textContent = `当年 全体比 ${formatShareRate(totalRevenue === 0 ? 0 : entry.value / totalRevenue)} / ${formatInteger(entry.value)} / 室数 ${formatInteger(entry.metrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.metrics)} / 室単価 ${formatInteger(entry.metrics.roomUnitPrice)}`;
 
         const compareMeta = document.createElement("div");
         compareMeta.className = "tlgt-annual-panel__chart-meta";
-        compareMeta.textContent = `前年 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)} / 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.compareMetrics)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`;
+        compareMeta.textContent = `前年 全体比 ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)} / 室数 ${formatInteger(entry.compareMetrics.actualRoomCount)} / Wash率 ${formatWashMetric(entry.compareMetrics)} / 室単価 ${formatInteger(entry.compareMetrics.roomUnitPrice)}`;
 
         const value = document.createElement("div");
         value.className = "tlgt-annual-panel__chart-value";
-        value.textContent = formatShareRate(entry.value / totalRevenue);
+        value.textContent = formatShareRate(totalRevenue === 0 ? 0 : entry.value / totalRevenue);
 
         metrics.append(currentMeta, compareMeta);
         labelWrap.append(label, metrics);
@@ -1957,7 +2024,7 @@ function showPieTooltip(
         createTooltipLine("tlgt-annual-panel__pie-tooltip-label", entry.label),
         createTooltipLine(
             "tlgt-annual-panel__pie-tooltip-line",
-            `当年: ${formatShareRate(totalRevenue === 0 ? 0 : entry.value / totalRevenue)} / ${formatInteger(entry.value)}`,
+            `当年 全体比: ${formatShareRate(totalRevenue === 0 ? 0 : entry.value / totalRevenue)} / ${formatInteger(entry.value)}`,
             true
         ),
         createTooltipLine(
@@ -1967,7 +2034,7 @@ function showPieTooltip(
         ),
         createTooltipLine(
             "tlgt-annual-panel__pie-tooltip-line",
-            `前年: ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`,
+            `前年 全体比: ${formatShareRate(totalCompareRevenue === 0 ? 0 : entry.compareValue / totalCompareRevenue)} / ${formatInteger(entry.compareValue)}`,
             true
         ),
         createTooltipLine(
