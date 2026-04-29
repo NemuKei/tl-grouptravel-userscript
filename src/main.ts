@@ -106,7 +106,7 @@ type AnnualDisplayTotals = {
     overallValues: Record<SumColumn, number>;
 };
 
-type SummaryCardTone = "current" | "compare" | "ghost";
+type SummaryCardTone = "current" | "compare" | "overall" | "ghost";
 
 type SummaryCardData = {
     label: string;
@@ -380,7 +380,7 @@ function injectStyle(): void {
 
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
             display: grid;
-            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
         }
 
@@ -404,6 +404,19 @@ function injectStyle(): void {
             color: #881337;
         }
 
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="overall"] {
+            background: #fffbeb;
+            border-color: #fcd34d;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="overall"] .tlgt-annual-panel__summary-label {
+            color: #92400e;
+        }
+
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="overall"] .tlgt-annual-panel__summary-value {
+            color: #78350f;
+        }
+
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-card[data-tone="ghost"] {
             visibility: hidden;
             pointer-events: none;
@@ -425,13 +438,13 @@ function injectStyle(): void {
 
         @media (max-width: 1680px) {
             #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
 
         @media (max-width: 960px) {
             #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: repeat(1, minmax(0, 1fr));
             }
         }
 
@@ -1720,44 +1733,53 @@ function renderSummary(
     const compareCount = selectedValues["実績件数（比較期間）"];
     const currentMetrics = buildPieChartMetricSnapshot(selectedValues);
     const compareMetrics = buildPieChartMetricSnapshot(selectedValues, true);
-    const overallCurrentMetrics = buildPieChartMetricSnapshot(overallValues);
     const overallCompareMetrics = buildPieChartMetricSnapshot(overallValues, true);
     const period = buildRangePeriod(rangeSelection);
 
-    const currentRowCards: SummaryCardData[] = [
-        { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
-        { label: "表示行数", value: `${rows.length}行`, tone: "current" },
-        { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
-        { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
-        { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
-        { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
-        { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
-        { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" }
+    const summaryRows: SummaryCardData[][] = [
+        [
+            { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
+            { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+            { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "overall" }
+        ],
+        [
+            { label: "表示行数", value: `${rows.length}行`, tone: "current" },
+            { label: "", value: "", tone: "ghost" },
+            { label: "", value: "", tone: "ghost" }
+        ],
+        [
+            { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
+            { label: "実績件数合計", value: formatInteger(compareCount), tone: "compare" },
+            { label: "実績件数合計", value: formatInteger(overallValues["実績件数（比較期間）"]), tone: "overall" }
+        ],
+        [
+            { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
+            { label: "実績室数合計", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
+            { label: "実績室数合計", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "overall" }
+        ],
+        [
+            { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
+            { label: "Wash率", value: formatWashMetric(compareMetrics), tone: "compare" },
+            { label: "Wash率", value: formatWashMetric(overallCompareMetrics), tone: "overall" }
+        ],
+        [
+            { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
+            { label: "室単価", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
+            { label: "室単価", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "overall" }
+        ],
+        [
+            { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
+            { label: "総合計料金合計", value: formatInteger(compareRevenue), tone: "compare" },
+            { label: "総合計料金合計", value: formatInteger(overallValues["総合計料金（比較期間）"]), tone: "overall" }
+        ],
+        [
+            { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" },
+            { label: "", value: "", tone: "ghost" },
+            { label: "", value: "", tone: "ghost" }
+        ]
     ];
 
-    const compareRowCards: SummaryCardData[] = [
-        { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
-        { label: "実績件数合計(前年・選択条件内)", value: formatInteger(compareCount), tone: "compare" },
-        { label: "実績室数合計(前年・選択条件内)", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
-        { label: "総合計料金合計(前年・選択条件内)", value: formatInteger(compareRevenue), tone: "compare" },
-        { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
-        { label: "実績件数合計(前年・全体基準)", value: formatInteger(overallValues["実績件数（比較期間）"]), tone: "compare" },
-        { label: "実績室数合計(前年・全体基準)", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "compare" },
-        { label: "総合計料金合計(前年・全体基準)", value: formatInteger(overallValues["総合計料金（比較期間）"]), tone: "compare" }
-    ];
-
-    const overallRowCards: SummaryCardData[] = [
-        { label: "対象期間(全体基準)", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "compare" },
-        { label: "実績件数合計(全体基準)", value: formatInteger(overallValues["実績件数"]), tone: "compare" },
-        { label: "実績室数合計(全体基準)", value: formatInteger(overallCurrentMetrics.actualRoomCount), tone: "compare" },
-        { label: "総合計料金合計(全体基準)", value: formatInteger(overallValues["総合計料金"]), tone: "compare" },
-        { label: "Wash率(全体基準)", value: formatWashMetric(overallCurrentMetrics), tone: "compare" },
-        { label: "Wash率(前年・全体基準)", value: formatWashMetric(overallCompareMetrics), tone: "compare" },
-        { label: "室単価(全体基準)", value: formatInteger(overallCurrentMetrics.roomUnitPrice), tone: "compare" },
-        { label: "室単価(前年・全体基準)", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "compare" }
-    ];
-
-    for (const rowCards of [currentRowCards, compareRowCards, overallRowCards]) {
+    for (const rowCards of summaryRows) {
         const rowElement = document.createElement("div");
         rowElement.className = "tlgt-annual-panel__summary-row";
 
