@@ -376,13 +376,12 @@ function injectStyle(): void {
 
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
-            align-items: start;
         }
 
-        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-column {
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
             display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
         }
 
@@ -439,7 +438,7 @@ function injectStyle(): void {
         }
 
         @media (max-width: 960px) {
-            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
+            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
                 grid-template-columns: repeat(1, minmax(0, 1fr));
             }
         }
@@ -1761,44 +1760,54 @@ function renderSummary(
     const overallCompareMetrics = buildPieChartMetricSnapshot(overallCompareTargetValues);
     const period = buildRangePeriod(rangeSelection);
 
-    const summaryColumns: SummaryCardData[][] = [
+    const summaryRows: SummaryCardData[][] = [
         [
             { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
-            { label: "表示行数", value: `${rows.length}行`, tone: "current" },
-            { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
-            { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
-            { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
-            { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
-            { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
-            { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" }
+            { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+            { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "overall" }
         ],
         [
-            { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
+            { label: "表示行数", value: `${rows.length}行`, tone: "current" },
             { label: "", value: "", tone: "ghost" },
-            { label: "実績件数合計", value: formatInteger(compareCount), tone: "compare" },
-            { label: "実績室数合計", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
-            { label: "Wash率", value: formatWashMetric(compareMetrics), tone: "compare" },
-            { label: "室単価", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
-            { label: "総合計料金合計", value: formatInteger(compareRevenue), tone: "compare" },
             { label: "", value: "", tone: "ghost" }
         ],
         [
-            { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "overall" },
+            { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
+            { label: "実績件数合計", value: formatInteger(compareCount), tone: "compare" },
+            { label: "実績件数合計", value: formatInteger(overallCompareTargetValues["実績件数"]), tone: "overall" }
+        ],
+        [
+            { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
+            { label: "実績室数合計", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
+            { label: "実績室数合計", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "overall" }
+        ],
+        [
+            { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
+            { label: "Wash率", value: formatWashMetric(compareMetrics), tone: "compare" },
+            { label: "Wash率", value: formatWashMetric(overallCompareMetrics), tone: "overall" }
+        ],
+        [
+            { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
+            { label: "室単価", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
+            { label: "室単価", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "overall" }
+        ],
+        [
+            { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
+            { label: "総合計料金合計", value: formatInteger(compareRevenue), tone: "compare" },
+            { label: "総合計料金合計", value: formatInteger(overallCompareTargetValues["総合計料金"]), tone: "overall" }
+        ],
+        [
+            { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" },
             { label: "", value: "", tone: "ghost" },
-            { label: "実績件数合計", value: formatInteger(overallCompareTargetValues["実績件数"]), tone: "overall" },
-            { label: "実績室数合計", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "overall" },
-            { label: "Wash率", value: formatWashMetric(overallCompareMetrics), tone: "overall" },
-            { label: "室単価", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "overall" },
-            { label: "総合計料金合計", value: formatInteger(overallCompareTargetValues["総合計料金"]), tone: "overall" },
             { label: "", value: "", tone: "ghost" }
         ]
     ];
 
-    for (const columnCards of summaryColumns) {
-        const columnElement = document.createElement("div");
-        columnElement.className = "tlgt-annual-panel__summary-column";
+    for (const rowCards of summaryRows) {
+        const rowElement = document.createElement("div");
+        rowElement.className = "tlgt-annual-panel__summary-row";
 
-        for (const cardData of columnCards) {
+        for (const cardData of rowCards) {
             const card = document.createElement("div");
             card.className = "tlgt-annual-panel__summary-card";
             card.dataset.tone = cardData.tone;
@@ -1815,10 +1824,10 @@ function renderSummary(
                 card.append(labelElement, valueElement);
             }
 
-            columnElement.append(card);
+            rowElement.append(card);
         }
 
-        summary.append(columnElement);
+        summary.append(rowElement);
     }
 
     chartContainer.append(summary);
