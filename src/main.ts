@@ -104,6 +104,7 @@ type AggregatedRow = {
 type AnnualDisplayTotals = {
     selectedValues: Record<SumColumn, number>;
     overallValues: Record<SumColumn, number>;
+    overallCompareTargetValues: Record<SumColumn, number>;
 };
 
 type SummaryCardTone = "current" | "compare" | "overall" | "ghost";
@@ -375,12 +376,13 @@ function injectStyle(): void {
 
         #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
             display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
+            align-items: start;
         }
 
-        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
+        #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-column {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 12px;
         }
 
@@ -436,14 +438,8 @@ function injectStyle(): void {
             white-space: pre-line;
         }
 
-        @media (max-width: 1680px) {
-            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-        }
-
         @media (max-width: 960px) {
-            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary-row {
+            #${ANNUAL_RESULT_ID} .tlgt-annual-panel__summary {
                 grid-template-columns: repeat(1, minmax(0, 1fr));
             }
         }
@@ -883,6 +879,7 @@ async function runAnnualAggregation(
     const chunks = buildAnnualChunks(rangeSelection);
     const parsedCsvList: ParsedCsv[] = [];
     const overallParsedCsvList: ParsedCsv[] = [];
+    const overallCompareTargetParsedCsvList: ParsedCsv[] = [];
 
     elements.displayButton.disabled = true;
     elements.exportButton.disabled = true;
@@ -908,6 +905,14 @@ async function runAnnualAggregation(
                 chunkItem.textContent = `${describeChunk(chunk)} の全体基準データを取得中...`;
                 const overallCsvText = await fetchChunkCsv(form, chunk, { useAllSalesDestinations: true });
                 overallParsedCsvList.push(parseCsv(overallCsvText));
+
+                chunkItem.textContent = `${describeChunk(chunk)} の前年全体基準データを取得中...`;
+                const overallCompareTargetCsvText = await fetchChunkCsv(
+                    form,
+                    buildPreviousTargetChunk(chunk),
+                    { useAllSalesDestinations: true }
+                );
+                overallCompareTargetParsedCsvList.push(parseCsv(overallCompareTargetCsvText));
             }
 
             chunkItem.dataset.status = "success";
@@ -919,10 +924,12 @@ async function runAnnualAggregation(
 
         if (mode === "display") {
             const overallAggregatedRows = aggregateCsvRows(overallParsedCsvList, true);
+            const overallCompareTargetAggregatedRows = aggregateCsvRows(overallCompareTargetParsedCsvList, true);
 
             renderAggregatedResult(elements, rangeSelection, sortedRows, {
                 selectedValues: sumRowValues(sortedRows),
-                overallValues: sumRowValues(overallAggregatedRows)
+                overallValues: sumRowValues(overallAggregatedRows),
+                overallCompareTargetValues: sumRowValues(overallCompareTargetAggregatedRows)
             });
             setPanelStatus(
                 elements.status,
@@ -1473,6 +1480,24 @@ function buildAnnualChunks(rangeSelection: MonthRangeSelection): AnnualChunk[] {
     return chunks;
 }
 
+function buildPreviousTargetChunk(chunk: AnnualChunk): AnnualChunk {
+    return {
+        index: chunk.index,
+        collectFrom: { ...chunk.compareFrom },
+        collectTo: { ...chunk.compareTo },
+        compareFrom: shiftDatePartsByYears(chunk.compareFrom, -1),
+        compareTo: shiftDatePartsByYears(chunk.compareTo, -1)
+    };
+}
+
+function shiftDatePartsByYears(dateParts: DateParts, offsetYears: number): DateParts {
+    return {
+        year: dateParts.year + offsetYears,
+        month: dateParts.month,
+        day: dateParts.day
+    };
+}
+
 function describeChunk(chunk: AnnualChunk): string {
     return `${chunk.collectFrom.year}/${pad2(chunk.collectFrom.month)}/${pad2(chunk.collectFrom.day)}～${chunk.collectTo.year}/${pad2(chunk.collectTo.month)}/${pad2(chunk.collectTo.day)}`;
 }
@@ -1712,7 +1737,7 @@ function renderAggregatedResult(
     elements.table.replaceChildren();
 
     renderSummary(elements.chart, rangeSelection, rows, displayTotals);
-    renderChart(elements.chart, rows, displayTotals.overallValues);
+    renderChart(elements.chart, rows, displayTotals.overallValues, displayTotals.overallCompareTargetValues);
     renderTable(elements.table, rows);
 }
 
@@ -1726,64 +1751,54 @@ function renderSummary(
     summary.className = "tlgt-annual-panel__summary";
 
     const selectedValues = displayTotals.selectedValues;
-    const overallValues = displayTotals.overallValues;
+    const overallCompareTargetValues = displayTotals.overallCompareTargetValues;
     const totalRevenue = selectedValues["総合計料金"];
     const compareRevenue = selectedValues["総合計料金（比較期間）"];
     const totalCount = selectedValues["実績件数"];
     const compareCount = selectedValues["実績件数（比較期間）"];
     const currentMetrics = buildPieChartMetricSnapshot(selectedValues);
     const compareMetrics = buildPieChartMetricSnapshot(selectedValues, true);
-    const overallCompareMetrics = buildPieChartMetricSnapshot(overallValues, true);
+    const overallCompareMetrics = buildPieChartMetricSnapshot(overallCompareTargetValues);
     const period = buildRangePeriod(rangeSelection);
 
-    const summaryRows: SummaryCardData[][] = [
+    const summaryColumns: SummaryCardData[][] = [
         [
             { label: "対象期間", value: describeSelection(rangeSelection).replace("〜", "〜\n"), tone: "current" },
-            { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
-            { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "overall" }
+            { label: "表示行数", value: `${rows.length}行`, tone: "current" },
+            { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
+            { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
+            { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
+            { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
+            { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
+            { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" }
         ],
         [
-            { label: "表示行数", value: `${rows.length}行`, tone: "current" },
+            { label: "前年同時期(選択条件内)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "compare" },
             { label: "", value: "", tone: "ghost" },
+            { label: "実績件数合計", value: formatInteger(compareCount), tone: "compare" },
+            { label: "実績室数合計", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
+            { label: "Wash率", value: formatWashMetric(compareMetrics), tone: "compare" },
+            { label: "室単価", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
+            { label: "総合計料金合計", value: formatInteger(compareRevenue), tone: "compare" },
             { label: "", value: "", tone: "ghost" }
         ],
         [
-            { label: "実績件数合計", value: formatInteger(totalCount), tone: "current" },
-            { label: "実績件数合計", value: formatInteger(compareCount), tone: "compare" },
-            { label: "実績件数合計", value: formatInteger(overallValues["実績件数（比較期間）"]), tone: "overall" }
-        ],
-        [
-            { label: "実績室数合計", value: formatInteger(currentMetrics.actualRoomCount), tone: "current" },
-            { label: "実績室数合計", value: formatInteger(compareMetrics.actualRoomCount), tone: "compare" },
-            { label: "実績室数合計", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "overall" }
-        ],
-        [
-            { label: "Wash率", value: formatWashMetric(currentMetrics), tone: "current" },
-            { label: "Wash率", value: formatWashMetric(compareMetrics), tone: "compare" },
-            { label: "Wash率", value: formatWashMetric(overallCompareMetrics), tone: "overall" }
-        ],
-        [
-            { label: "室単価", value: formatInteger(currentMetrics.roomUnitPrice), tone: "current" },
-            { label: "室単価", value: formatInteger(compareMetrics.roomUnitPrice), tone: "compare" },
-            { label: "室単価", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "overall" }
-        ],
-        [
-            { label: "総合計料金合計", value: formatInteger(totalRevenue), tone: "current" },
-            { label: "総合計料金合計", value: formatInteger(compareRevenue), tone: "compare" },
-            { label: "総合計料金合計", value: formatInteger(overallValues["総合計料金（比較期間）"]), tone: "overall" }
-        ],
-        [
-            { label: "総合計料金差額", value: formatSignedInteger(totalRevenue - compareRevenue), tone: "current" },
+            { label: "前年同時期(全体基準)", value: `${period.compareFrom.year}年${pad2(period.compareFrom.month)}月〜\n${period.compareTo.year}年${pad2(period.compareTo.month)}月`, tone: "overall" },
             { label: "", value: "", tone: "ghost" },
+            { label: "実績件数合計", value: formatInteger(overallCompareTargetValues["実績件数"]), tone: "overall" },
+            { label: "実績室数合計", value: formatInteger(overallCompareMetrics.actualRoomCount), tone: "overall" },
+            { label: "Wash率", value: formatWashMetric(overallCompareMetrics), tone: "overall" },
+            { label: "室単価", value: formatInteger(overallCompareMetrics.roomUnitPrice), tone: "overall" },
+            { label: "総合計料金合計", value: formatInteger(overallCompareTargetValues["総合計料金"]), tone: "overall" },
             { label: "", value: "", tone: "ghost" }
         ]
     ];
 
-    for (const rowCards of summaryRows) {
-        const rowElement = document.createElement("div");
-        rowElement.className = "tlgt-annual-panel__summary-row";
+    for (const columnCards of summaryColumns) {
+        const columnElement = document.createElement("div");
+        columnElement.className = "tlgt-annual-panel__summary-column";
 
-        for (const cardData of rowCards) {
+        for (const cardData of columnCards) {
             const card = document.createElement("div");
             card.className = "tlgt-annual-panel__summary-card";
             card.dataset.tone = cardData.tone;
@@ -1800,10 +1815,10 @@ function renderSummary(
                 card.append(labelElement, valueElement);
             }
 
-            rowElement.append(card);
+            columnElement.append(card);
         }
 
-        summary.append(rowElement);
+        summary.append(columnElement);
     }
 
     chartContainer.append(summary);
@@ -1812,7 +1827,8 @@ function renderSummary(
 function renderChart(
     chartContainer: HTMLDivElement,
     rows: AggregatedRow[],
-    overallValues: Record<SumColumn, number>
+    overallValues: Record<SumColumn, number>,
+    overallCompareTargetValues: Record<SumColumn, number>
 ): void {
     const title = document.createElement("h4");
     title.className = "tlgt-annual-panel__chart-title";
@@ -1821,7 +1837,7 @@ function renderChart(
 
     const rankedRows = sortRowsByRevenueDesc(rows).filter((row) => row.values["総合計料金"] > 0);
     const totalRevenue = overallValues["総合計料金"];
-    const totalCompareRevenue = overallValues["総合計料金（比較期間）"];
+    const totalCompareRevenue = overallCompareTargetValues["総合計料金"];
 
     if (rankedRows.length === 0 || totalRevenue === 0) {
         const empty = document.createElement("div");
