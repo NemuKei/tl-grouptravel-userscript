@@ -1048,15 +1048,29 @@ function serializeStatsForm(
     setChunkDateParams(params, "compareDateTo", chunk.compareTo);
 
     if (options.useAllSalesDestinations === true) {
-        applyAllSalesDestinationParams(params);
+        applyAllSalesDestinationParams(form, params);
     }
 
     return params;
 }
 
-function applyAllSalesDestinationParams(params: URLSearchParams): void {
+function applyAllSalesDestinationParams(form: HTMLFormElement, params: URLSearchParams): void {
     params.delete("salesDestSelectCd");
-    params.set("salesDestSelectAll", "on");
+
+    const allSalesDestinationInput = form.querySelector<HTMLInputElement>('input[name="salesDestSelectAll"]');
+    params.set("salesDestSelectAll", allSalesDestinationInput?.value || "1");
+
+    const salesDestinationInputs = Array.from(
+        form.querySelectorAll<HTMLInputElement>('input[name="salesDestSelectCd"]')
+    );
+
+    for (const input of salesDestinationInputs) {
+        if (input.disabled || input.value === "") {
+            continue;
+        }
+
+        params.append("salesDestSelectCd", input.value);
+    }
 }
 
 function setChunkDateParams(params: URLSearchParams, prefix: string, dateParts: DateParts): void {
